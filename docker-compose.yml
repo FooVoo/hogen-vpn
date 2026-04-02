@@ -1,0 +1,17 @@
+services:
+  mtg:
+    image: nineseconds/mtg:2
+    restart: unless-stopped
+    ports:
+      - "2083:3128"
+    volumes:
+      - ./mtg/config.toml:/config/config.toml:ro
+
+  xray:
+    image: ghcr.io/xtls/xray-core:latest
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./xray/config.json:/etc/xray/config.json:ro
+    command: run -c /etc/xray/config.json

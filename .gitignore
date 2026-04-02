@@ -1,0 +1,5 @@
+.env
+mtg/config.toml
+xray/config.json
+web/index.html
+web/.htpasswd
