@@ -35,16 +35,18 @@ if (( ${#ROTATABLE_DOMAINS[@]} < 2 )); then
 fi
 
 CURRENT_DOMAIN="${XRAY_SNI}"
-NEXT_DOMAIN="${CURRENT_DOMAIN}"
-while [[ "$NEXT_DOMAIN" == "$CURRENT_DOMAIN" ]]; do
-  NEXT_DOMAIN="${ROTATABLE_DOMAINS[$RANDOM % ${#ROTATABLE_DOMAINS[@]}]}"
+CANDIDATES=()
+for CANDIDATE in "${ROTATABLE_DOMAINS[@]}"; do
+  [[ "$CANDIDATE" != "$CURRENT_DOMAIN" ]] && CANDIDATES+=("$CANDIDATE")
 done
+NEXT_DOMAIN="${CANDIDATES[$RANDOM % ${#CANDIDATES[@]}]}"
 
 XRAY_SNI="$NEXT_DOMAIN"
 XRAY_DEST="${XRAY_SNI}:443"
 VLESS_URI="vless://${XRAY_UUID}@${SERVER_IP}:8443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${XRAY_SNI}&fp=chrome&pbk=${XRAY_PUBLIC_KEY}&sid=${XRAY_SHORT_ID}&type=tcp#VPN"
 
 TMP_ENV="$(mktemp)"
+chmod 600 "$TMP_ENV"
 trap 'rm -f "$TMP_ENV"' EXIT
 cat > "$TMP_ENV" <<EOF
 SERVER_IP=${SERVER_IP}

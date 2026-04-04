@@ -16,3 +16,11 @@ rsync -az --delete -e "ssh -i $KEY" \
 ssh -i "$KEY" "$SERVER" "chmod +x ${REMOTE_DIR}/*.sh"
 
 echo "Synced → ${SERVER}:${REMOTE_DIR}"
+
+echo "Re-rendering configs on server..."
+ssh -i "$KEY" "$SERVER" "cd ${REMOTE_DIR} && ./render-xray-config.sh && ./render-credentials-page.sh"
+
+echo "Restarting containers..."
+ssh -i "$KEY" "$SERVER" "cd ${REMOTE_DIR} && docker compose up -d --force-recreate"
+
+echo "Deploy complete."

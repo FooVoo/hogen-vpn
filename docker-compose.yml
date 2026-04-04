@@ -6,12 +6,24 @@ services:
       - "2083:3128"
     volumes:
       - ./mtg/config.toml:/config/config.toml:ro
+    healthcheck:
+      test: ["CMD", "mtg", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   xray:
-    image: ghcr.io/xtls/xray-core:latest
+    image: ghcr.io/xtls/xray-core:v26.3.27
     restart: unless-stopped
     ports:
       - "8443:8443"
     volumes:
       - ./xray/config.json:/etc/xray/config.json:ro
     command: run -c /etc/xray/config.json
+    healthcheck:
+      test: ["CMD-SHELL", "xray api statsquery 2>&1 || ss -tlnp | grep -q 8443"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

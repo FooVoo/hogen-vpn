@@ -18,6 +18,8 @@ set -a; source "$SCRIPT_DIR/.env"; set +a
 apt-get install -y --quiet certbot python3-certbot-nginx gettext-base
 
 # Open firewall ports
+ufw allow 80/tcp  comment "HTTP"
+ufw allow 443/tcp comment "HTTPS"
 ufw allow 2083/tcp comment "MTProxy"
 ufw allow 8443/tcp comment "VLESS"
 
@@ -27,7 +29,8 @@ ufw allow 8443/tcp comment "VLESS"
 # Generate htpasswd
 printf '%s:%s\n' "$PAGE_USER" "$(openssl passwd -apr1 "$PAGE_PASSWORD")" \
   > /etc/nginx/htpasswd-vpn
-chmod 644 /etc/nginx/htpasswd-vpn
+chown root:www-data /etc/nginx/htpasswd-vpn
+chmod 640 /etc/nginx/htpasswd-vpn
 
 # Install nginx vhost
 cp "$SCRIPT_DIR/web/nginx-vhost.conf" "$VHOST_PATH"
