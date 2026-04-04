@@ -124,8 +124,6 @@ XRAY_ROTATE_HOURS=2
 XRAY_DEST="${XRAY_SNI}:443"
 
 echo "Generating page credentials..."
-PAGE_USER="admin"
-PAGE_PASSWORD=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
 PAGE_TOKEN=$(openssl rand -hex 16)
 
 MTG_PORT=2083
@@ -175,8 +173,6 @@ IKE_PSK="${IKE_PSK}"
 IKE_USER=${IKE_USER}
 IKE_PASSWORD=${IKE_PASSWORD}
 
-PAGE_USER=${PAGE_USER}
-PAGE_PASSWORD=${PAGE_PASSWORD}
 PAGE_TOKEN=${PAGE_TOKEN}
 
 # Domain for the nginx credentials page (required by setup-nginx.sh)
@@ -199,7 +195,6 @@ echo "MTProxy cover domain:  ${MTG_COVER_DOMAIN}"
 echo "Shadowsocks method:    ${SS_METHOD}"
 echo "IKEv2 user:            ${IKE_USER}"
 echo ""
-echo "Credentials page login:  ${PAGE_USER} / ${PAGE_PASSWORD}"
 echo "Credentials page token:  ${PAGE_TOKEN}"
 echo "(Share URL: https://<CREDENTIALS_DOMAIN>/${PAGE_TOKEN}/)"
 echo ""

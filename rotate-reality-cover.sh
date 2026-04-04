@@ -25,8 +25,6 @@ set -a; source "$ENV_FILE"; set +a
 [[ -n "${IKE_PSK:-}" ]]          || { echo "ERROR: IKE_PSK is missing"; exit 1; }
 [[ -n "${IKE_USER:-}" ]]         || { echo "ERROR: IKE_USER is missing"; exit 1; }
 [[ -n "${IKE_PASSWORD:-}" ]]     || { echo "ERROR: IKE_PASSWORD is missing"; exit 1; }
-[[ -n "${PAGE_USER:-}" ]]        || { echo "ERROR: PAGE_USER is missing"; exit 1; }
-[[ -n "${PAGE_PASSWORD:-}" ]]    || { echo "ERROR: PAGE_PASSWORD is missing"; exit 1; }
 [[ -n "${PAGE_TOKEN:-}" ]]       || { echo "ERROR: PAGE_TOKEN is missing"; exit 1; }
 XRAY_ROTATE_HOURS="${XRAY_ROTATE_HOURS:-2}"
 
@@ -151,8 +149,6 @@ IKE_PSK="${IKE_PSK}"
 IKE_USER=${IKE_USER}
 IKE_PASSWORD=${IKE_PASSWORD}
 
-PAGE_USER=${PAGE_USER}
-PAGE_PASSWORD=${PAGE_PASSWORD}
 PAGE_TOKEN=${PAGE_TOKEN}
 
 CREDENTIALS_DOMAIN=${CREDENTIALS_DOMAIN:-}

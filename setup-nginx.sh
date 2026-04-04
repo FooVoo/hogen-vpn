@@ -54,8 +54,9 @@ certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos \
   --register-unsafely-without-email --redirect
 
 # Configure and enable fail2ban
-mkdir -p /etc/fail2ban/jail.d
-cp "$SCRIPT_DIR/fail2ban/jail.d/hogen-vpn.conf" /etc/fail2ban/jail.d/hogen-vpn.conf
+mkdir -p /etc/fail2ban/jail.d /etc/fail2ban/filter.d
+cp "$SCRIPT_DIR/fail2ban/jail.d/hogen-vpn.conf"        /etc/fail2ban/jail.d/hogen-vpn.conf
+cp "$SCRIPT_DIR/fail2ban/filter.d/nginx-path-probe.conf" /etc/fail2ban/filter.d/nginx-path-probe.conf
 systemctl enable --now fail2ban
 fail2ban-client reload || true
 

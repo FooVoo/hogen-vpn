@@ -2,6 +2,8 @@ services:
   mtg:
     image: nineseconds/mtg:2
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "2083:3128"
     volumes:
@@ -52,6 +54,8 @@ services:
   xray:
     image: ghcr.io/xtls/xray-core:26.3.27
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "8443:8443"
       - "8388:8388/tcp"
