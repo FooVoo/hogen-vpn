@@ -7,11 +7,14 @@ services:
     volumes:
       - ./mtg/config.toml:/config/config.toml:ro
     healthcheck:
-      test: ["CMD", "mtg", "healthcheck"]
+      # 'mtg healthcheck' does not exist in nineseconds/mtg v2.
+      # 'mtg access' reads + validates config (no network I/O when both
+      # --ipv4 and --ipv6 are supplied) and exits 0 on success.
+      test: ["CMD", "/mtg", "access", "/config/config.toml", "--ipv4", "127.0.0.1", "--ipv6", "::1"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
 
   ipsec:
     image: hwdsl2/ipsec-vpn-server
