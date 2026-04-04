@@ -22,7 +22,7 @@ command -v docker >/dev/null 2>&1 || { echo "ERROR: docker is not installed"; ex
 
 echo "Pulling images..."
 docker pull nineseconds/mtg:2 --quiet >/dev/null
-docker pull ghcr.io/xtls/xray-core:v26.3.27 --quiet >/dev/null
+docker pull ghcr.io/xtls/xray-core:26.3.27 --quiet >/dev/null
 
 echo "Generating MTProxy secret..."
 mkdir -p mtg
@@ -52,7 +52,7 @@ else
     || uuidgen \
     || { echo "ERROR: cannot generate UUID — install python3 or uuidgen"; exit 1; })
 fi
-XRAY_KEYPAIR=$(docker run --rm ghcr.io/xtls/xray-core:v26.3.27 x25519)
+XRAY_KEYPAIR=$(docker run --rm ghcr.io/xtls/xray-core:26.3.27 x25519)
 XRAY_PRIVATE_KEY=$(echo "$XRAY_KEYPAIR" | awk -F': *' '{key=$1; gsub(/ /, "", key); if (tolower(key)=="privatekey") print $2}')
 XRAY_PUBLIC_KEY=$(echo "$XRAY_KEYPAIR"  | awk -F': *' '{key=$1; gsub(/ /, "", key); if (tolower(key)=="publickey") print $2}')
 XRAY_SHORT_ID=$(openssl rand -hex 8)

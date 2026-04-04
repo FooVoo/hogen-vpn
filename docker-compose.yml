@@ -47,7 +47,7 @@ services:
       start_period: 60s
 
   xray:
-    image: ghcr.io/xtls/xray-core:v26.3.27
+    image: ghcr.io/xtls/xray-core:26.3.27
     restart: unless-stopped
     ports:
       - "8443:8443"

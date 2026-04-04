@@ -79,7 +79,7 @@ The standard deployment relies on the VPS host for the following:
 | Service | Image | Host port(s) | Role |
 | --- | --- | --- | --- |
 | `mtg` | `nineseconds/mtg:2` | `2083 → 3128` | Telegram MTProxy with domain-fronting secret |
-| `xray` | `ghcr.io/xtls/xray-core:v26.3.27` | `8443`, `8388 tcp+udp` | VLESS+Reality inbound (8443) + Shadowsocks 2022 inbound (8388) |
+| `xray` | `ghcr.io/xtls/xray-core:26.3.27` | `8443`, `8388 tcp+udp` | VLESS+Reality inbound (8443) + Shadowsocks 2022 inbound (8388) |
 | `ipsec` | `hwdsl2/ipsec-vpn-server` | `500/udp`, `4500/udp` | IKEv2/IPSec with EAP auth, `VPN_IKEV2_ONLY=yes` |
 
 All containers use:

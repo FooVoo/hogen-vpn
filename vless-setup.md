@@ -26,7 +26,7 @@ cat /proc/sys/kernel/random/uuid
 Generated using Xray itself:
 
 ```bash
-docker run --rm ghcr.io/xtls/xray-core:v26.3.27 xray x25519
+docker run --rm ghcr.io/xtls/xray-core:26.3.27 xray x25519
 ```
 
 Output:
