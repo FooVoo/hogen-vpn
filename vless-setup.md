@@ -76,7 +76,9 @@ curl -vI --http2 https://www.microsoft.com 2>&1 | grep -E "TLSv1.3|HTTP/2"
 
 You should see both `TLSv1.3` and `HTTP/2` in the output.
 
-If you are using this repository's automation, `./generate-secrets.sh <SERVER_IP> [REALITY_COVER_DOMAIN]` will use the optional second argument as the cover domain. If you omit it, the script randomly picks one from the curated list above so different deployments do not all reuse the same default target.
+If you are using this repository's automation, `./generate-secrets.sh <SERVER_IP> [REALITY_COVER_DOMAIN]` will use the optional second argument as the initial cover domain. If you omit it, the script randomly picks one from the curated list above so different deployments do not all reuse the same default target.
+
+The automated setup can also rotate the active cover domain every few hours. Because REALITY ties `serverNames` to the active `dest`, an older imported profile may stop working after rotation; users should reopen the credentials page and import the fresh link or QR code. If you want stable long-lived profiles instead, set `XRAY_ROTATE_HOURS=0` before rerunning `./setup-nginx.sh`.
 
 ---
 

@@ -285,6 +285,10 @@
         <button class="copy-btn" onclick="copy(this, document.getElementById('vless-uri').textContent)">Копировать</button>
       </div>
       <a class="btn btn-tg" href="${VLESS_URI}" style="margin-bottom:20px;">&#8594; Открыть в приложении</a>
+      <div class="qr-hint" style="margin-bottom:20px;">
+        <strong>Важно:</strong>
+        ${XRAY_ROTATION_MESSAGE}
+      </div>
 
       <div class="divider"></div>
       <div class="section-label">Параметры вручную</div>

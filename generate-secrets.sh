@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SERVER_IP="${1:-}"
 if [[ -z "$SERVER_IP" ]]; then
   echo "Usage: ./generate-secrets.sh <SERVER_IP> [REALITY_COVER_DOMAIN]"
@@ -38,6 +39,7 @@ XRAY_PUBLIC_KEY=$(echo "$XRAY_KEYPAIR"  | awk -F': *' '{key=$1; gsub(/ /, "", ke
 XRAY_SHORT_ID=$(openssl rand -hex 8)
 REALITY_COVER_DOMAINS=(
   "www.microsoft.com"
+  "www.cloudflare.com"
   "github.com"
   "www.bing.com"
   "www.office.com"
@@ -46,6 +48,16 @@ if [[ -n "$REALITY_COVER_DOMAIN" ]]; then
   XRAY_SNI="${REALITY_COVER_DOMAIN#https://}"
   XRAY_SNI="${XRAY_SNI%%/*}"
   XRAY_SNI="${XRAY_SNI%%:*}"
+  DOMAIN_IN_POOL=false
+  for COVER_DOMAIN in "${REALITY_COVER_DOMAINS[@]}"; do
+    if [[ "$COVER_DOMAIN" == "$XRAY_SNI" ]]; then
+      DOMAIN_IN_POOL=true
+      break
+    fi
+  done
+  if [[ "$DOMAIN_IN_POOL" == false ]]; then
+    REALITY_COVER_DOMAINS=("$XRAY_SNI" "${REALITY_COVER_DOMAINS[@]}")
+  fi
 else
   XRAY_SNI="${REALITY_COVER_DOMAINS[$RANDOM % ${#REALITY_COVER_DOMAINS[@]}]}"
 fi
@@ -53,6 +65,8 @@ if [[ -z "$XRAY_SNI" || -z "$XRAY_PRIVATE_KEY" || -z "$XRAY_PUBLIC_KEY" ]]; then
   echo "ERROR: failed to generate REALITY credentials"
   exit 1
 fi
+XRAY_COVER_DOMAINS=$(IFS=,; echo "${REALITY_COVER_DOMAINS[*]}")
+XRAY_ROTATE_HOURS=6
 XRAY_DEST="${XRAY_SNI}:443"
 
 echo "Generating page credentials..."
@@ -79,55 +93,15 @@ XRAY_PUBLIC_KEY=${XRAY_PUBLIC_KEY}
 XRAY_SHORT_ID=${XRAY_SHORT_ID}
 XRAY_SNI=${XRAY_SNI}
 XRAY_DEST=${XRAY_DEST}
+XRAY_COVER_DOMAINS=${XRAY_COVER_DOMAINS}
+XRAY_ROTATE_HOURS=${XRAY_ROTATE_HOURS}
 VLESS_URI="${VLESS_URI}"
 
 PAGE_USER=${PAGE_USER}
 PAGE_PASSWORD=${PAGE_PASSWORD}
 EOF
 
-# Write xray config
-mkdir -p xray
-cat > xray/config.json <<EOF
-{
-    "log": { "loglevel": "warning" },
-    "inbounds": [
-        {
-            "listen": "0.0.0.0",
-            "port": 8443,
-            "protocol": "vless",
-            "settings": {
-                "clients": [
-                    {
-                        "id": "${XRAY_UUID}",
-                        "flow": "xtls-rprx-vision"
-                    }
-                ],
-                "decryption": "none"
-            },
-            "streamSettings": {
-                "network": "tcp",
-                "security": "reality",
-                "realitySettings": {
-                    "show": false,
-                    "dest": "${XRAY_DEST}",
-                    "serverNames": ["${XRAY_SNI}"],
-                    "privateKey": "${XRAY_PRIVATE_KEY}",
-                    "shortIds": ["${XRAY_SHORT_ID}"],
-                    "maxTimeDiff": 60000
-                }
-            },
-            "sniffing": {
-                "enabled": true,
-                "destOverride": ["http", "tls", "quic"]
-            }
-        }
-    ],
-    "outbounds": [
-        { "protocol": "freedom", "tag": "direct" },
-        { "protocol": "blackhole", "tag": "block" }
-    ]
-}
-EOF
+"$SCRIPT_DIR/render-xray-config.sh"
 
 echo ""
 echo "Done. Files written:"
