@@ -4,13 +4,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SERVER_IP="${1:-}"
 if [[ -z "$SERVER_IP" ]]; then
-  echo "Usage: ./generate-secrets.sh <SERVER_IP> [REALITY_COVER_DOMAIN]"
+  echo "Usage: ./generate-secrets.sh <SERVER_IP> [REALITY_COVER_DOMAIN] [CREDENTIALS_DOMAIN]"
   echo "Example: ./generate-secrets.sh 1.2.3.4"
-  echo "Example: ./generate-secrets.sh 1.2.3.4 github.com"
+  echo "Example: ./generate-secrets.sh 1.2.3.4 github.com vpn.example.com"
   exit 1
 fi
 
 REALITY_COVER_DOMAIN="${2:-}"
+CREDENTIALS_DOMAIN="${3:-}"
 
 if [[ -f .env ]]; then
   echo "ERROR: .env already exists. Delete it first to regenerate secrets."
@@ -137,6 +138,11 @@ VLESS_URI="${VLESS_URI}"
 
 PAGE_USER=${PAGE_USER}
 PAGE_PASSWORD=${PAGE_PASSWORD}
+
+# Domain for the nginx credentials page (required by setup-nginx.sh)
+CREDENTIALS_DOMAIN=${CREDENTIALS_DOMAIN}
+# Webroot for the credentials page (default: /var/www/vpn)
+CREDENTIALS_WEBROOT=/var/www/vpn
 EOF
 
 "$SCRIPT_DIR/render-xray-config.sh"

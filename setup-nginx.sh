@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 # Run on the server after generate-secrets.sh.
-# Sets up nginx vhost for universal.ramilkarimov.me + SSL + firewall rules.
+# Sets up nginx vhost for the credentials page + SSL + firewall rules.
 set -euo pipefail
 
-DOMAIN="universal.ramilkarimov.me"
-WEBROOT="/var/www/vpn"
-VHOST_PATH="/etc/nginx/sites-available/vpn"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 [[ $EUID -eq 0 ]] || { echo "Run as root"; exit 1; }
@@ -13,6 +10,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Load credentials
 set -a; source "$SCRIPT_DIR/.env"; set +a
+
+[[ -n "${CREDENTIALS_DOMAIN:-}" ]] || { echo "ERROR: CREDENTIALS_DOMAIN is missing in .env"; exit 1; }
+
+DOMAIN="${CREDENTIALS_DOMAIN}"
+WEBROOT="${CREDENTIALS_WEBROOT:-/var/www/vpn}"
+VHOST_PATH="${NGINX_VHOST_PATH:-/etc/nginx/sites-available/vpn}"
 
 # Install tools
 apt-get install -y --quiet certbot python3-certbot-nginx gettext-base
@@ -32,8 +35,11 @@ printf '%s:%s\n' "$PAGE_USER" "$(openssl passwd -apr1 "$PAGE_PASSWORD")" \
 chown root:www-data /etc/nginx/htpasswd-vpn
 chmod 640 /etc/nginx/htpasswd-vpn
 
-# Install nginx vhost
-cp "$SCRIPT_DIR/web/nginx-vhost.conf" "$VHOST_PATH"
+# Install nginx vhost (render template with env vars)
+export CREDENTIALS_DOMAIN WEBROOT
+envsubst '${CREDENTIALS_DOMAIN}${WEBROOT}' \
+  < "$SCRIPT_DIR/web/nginx-vhost.conf.template" \
+  > "$VHOST_PATH"
 ln -sf "$VHOST_PATH" /etc/nginx/sites-enabled/vpn
 nginx -t
 systemctl reload nginx
