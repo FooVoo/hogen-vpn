@@ -23,7 +23,10 @@ rsync -az ./ user@yourserver:/opt/vpn/
 ssh user@yourserver "curl -fsSL https://get.docker.com | sh"
 
 # 3. Generate all secrets
-ssh user@yourserver "cd /opt/vpn && ./generate-secrets.sh your.domain.com"
+ssh user@yourserver "cd /opt/vpn && ./generate-secrets.sh <SERVER_IP>"
+
+# Optional: pin a specific REALITY cover domain instead of auto-selecting one
+ssh user@yourserver "cd /opt/vpn && ./generate-secrets.sh <SERVER_IP> github.com"
 
 # 4. Set up nginx vhost + SSL + firewall
 ssh user@yourserver "cd /opt/vpn && ./setup-nginx.sh"
@@ -34,6 +37,8 @@ ssh user@yourserver "cd /opt/vpn && docker compose up -d"
 
 Credentials page will be at `https://your.domain.com`.
 Login and password are printed at the end of step 3.
+
+If you do not pass a REALITY cover domain, `generate-secrets.sh` now randomly chooses one from a curated list of TLS 1.3 / HTTP/2 targets (`www.microsoft.com`, `www.cloudflare.com`, `github.com`, `www.bing.com`, `www.office.com`). This avoids every deployment presenting the same default REALITY fingerprint.
 
 ## Ongoing deploys
 
@@ -65,7 +70,7 @@ ssh user@yourserver "cd /opt/vpn && docker compose up -d"
 
 ## Adapting for a different server
 
-`setup-nginx.sh` has the domain hardcoded. Edit `DOMAIN=` at the top before running on a new server. Everything else is driven by `.env` which `generate-secrets.sh` creates fresh per server.
+`setup-nginx.sh` has the domain hardcoded. Edit `DOMAIN=` at the top before running on a new server. Everything else is driven by `.env` which `generate-secrets.sh` creates fresh per server, including the selected REALITY cover domain.
 
 ## Client apps
 
@@ -85,7 +90,7 @@ Import via the VLESS URI link or QR code from the credentials page.
 ## Files
 
 ```
-generate-secrets.sh     — run once per server, creates .env + configs
+generate-secrets.sh     — run once per server, creates .env + configs and selects a REALITY cover domain
 setup-nginx.sh          — nginx vhost, Certbot SSL, firewall rules, HTML generation
 deploy.sh               — rsync local files to server (excludes secrets)
 docker-compose.yml      — mtg + xray containers

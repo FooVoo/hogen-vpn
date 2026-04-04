@@ -3,10 +3,13 @@ set -euo pipefail
 
 SERVER_IP="${1:-}"
 if [[ -z "$SERVER_IP" ]]; then
-  echo "Usage: ./generate-secrets.sh <SERVER_IP>"
+  echo "Usage: ./generate-secrets.sh <SERVER_IP> [REALITY_COVER_DOMAIN]"
   echo "Example: ./generate-secrets.sh 1.2.3.4"
+  echo "Example: ./generate-secrets.sh 1.2.3.4 github.com"
   exit 1
 fi
+
+REALITY_COVER_DOMAIN="${2:-}"
 
 if [[ -f .env ]]; then
   echo "ERROR: .env already exists. Delete it first to regenerate secrets."
@@ -30,11 +33,27 @@ EOF
 echo "Generating VLESS credentials..."
 XRAY_UUID=$(cat /proc/sys/kernel/random/uuid)
 XRAY_KEYPAIR=$(docker run --rm ghcr.io/xtls/xray-core x25519)
-XRAY_PRIVATE_KEY=$(echo "$XRAY_KEYPAIR" | awk '/^PrivateKey:/{print $2}')
-XRAY_PUBLIC_KEY=$(echo "$XRAY_KEYPAIR"  | awk '/^Password/{print $NF}')
+XRAY_PRIVATE_KEY=$(echo "$XRAY_KEYPAIR" | awk -F': *' '{key=$1; gsub(/ /, "", key); if (tolower(key)=="privatekey") print $2}')
+XRAY_PUBLIC_KEY=$(echo "$XRAY_KEYPAIR"  | awk -F': *' '{key=$1; gsub(/ /, "", key); if (tolower(key)=="publickey") print $2}')
 XRAY_SHORT_ID=$(openssl rand -hex 8)
-XRAY_SNI="www.microsoft.com"
-XRAY_DEST="www.microsoft.com:443"
+REALITY_COVER_DOMAINS=(
+  "www.microsoft.com"
+  "github.com"
+  "www.bing.com"
+  "www.office.com"
+)
+if [[ -n "$REALITY_COVER_DOMAIN" ]]; then
+  XRAY_SNI="${REALITY_COVER_DOMAIN#https://}"
+  XRAY_SNI="${XRAY_SNI%%/*}"
+  XRAY_SNI="${XRAY_SNI%%:*}"
+else
+  XRAY_SNI="${REALITY_COVER_DOMAINS[$RANDOM % ${#REALITY_COVER_DOMAINS[@]}]}"
+fi
+if [[ -z "$XRAY_SNI" || -z "$XRAY_PRIVATE_KEY" || -z "$XRAY_PUBLIC_KEY" ]]; then
+  echo "ERROR: failed to generate REALITY credentials"
+  exit 1
+fi
+XRAY_DEST="${XRAY_SNI}:443"
 
 echo "Generating page credentials..."
 PAGE_USER="admin"
@@ -59,6 +78,7 @@ XRAY_PRIVATE_KEY=${XRAY_PRIVATE_KEY}
 XRAY_PUBLIC_KEY=${XRAY_PUBLIC_KEY}
 XRAY_SHORT_ID=${XRAY_SHORT_ID}
 XRAY_SNI=${XRAY_SNI}
+XRAY_DEST=${XRAY_DEST}
 VLESS_URI="${VLESS_URI}"
 
 PAGE_USER=${PAGE_USER}
@@ -114,6 +134,8 @@ echo "Done. Files written:"
 echo "  .env              — all credentials"
 echo "  mtg/config.toml   — MTProxy config"
 echo "  xray/config.json  — VLESS config"
+echo ""
+echo "REALITY cover domain: ${XRAY_SNI}"
 echo ""
 echo "Credentials page login:  ${PAGE_USER} / ${PAGE_PASSWORD}"
 echo ""
