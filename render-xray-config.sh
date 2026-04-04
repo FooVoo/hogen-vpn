@@ -69,3 +69,4 @@ cat > "${SCRIPT_DIR}/xray/config.json" <<EOF
     ]
 }
 EOF
+chmod 600 "${SCRIPT_DIR}/xray/config.json"

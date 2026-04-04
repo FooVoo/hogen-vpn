@@ -61,6 +61,8 @@ IKE_USER=vpnuser
 IKE_PASSWORD=mockikepass
 PAGE_USER=admin
 PAGE_PASSWORD=testpass1234
+CREDENTIALS_DOMAIN=vpn.example.com
+CREDENTIALS_WEBROOT=/var/www/vpn
 EOF
 }
 
@@ -181,6 +183,8 @@ IKE_USER=vpnuser
 IKE_PASSWORD=mockikepass
 PAGE_USER=admin
 PAGE_PASSWORD=testpass1234
+CREDENTIALS_DOMAIN=vpn.example.com
+CREDENTIALS_WEBROOT=/var/www/vpn
 EOF
 OUTPUT=$( (cd "$WORK_DIR" && WEBROOT="$WEBROOT" bash rotate-reality-cover.sh 2>&1) || true)
 if echo "$OUTPUT" | grep -q "ERROR: need at least two cover domains"; then
@@ -208,6 +212,29 @@ if [[ "$POOL_AFTER" == "$MOCK_DOMAINS" ]]; then
   report PASS "Domain pool unchanged after rotation"
 else
   report FAIL "Domain pool changed: $POOL_AFTER (expected $MOCK_DOMAINS)"
+fi
+
+echo ""
+echo "=== Test 10: CREDENTIALS_DOMAIN preserved after rotation ==="
+write_mock_env "www.microsoft.com"
+(cd "$WORK_DIR" && WEBROOT="$WEBROOT" bash rotate-reality-cover.sh 2>&1) || true
+CREDS_DOMAIN=$(grep '^CREDENTIALS_DOMAIN=' "$WORK_DIR/.env" | cut -d= -f2)
+if [[ "$CREDS_DOMAIN" == "vpn.example.com" ]]; then
+  report PASS "CREDENTIALS_DOMAIN preserved after rotation"
+else
+  report FAIL "CREDENTIALS_DOMAIN lost after rotation (got: '${CREDS_DOMAIN}')"
+fi
+
+echo ""
+echo "=== Test 11: xray/config.json permissions after render ==="
+write_mock_env "www.microsoft.com"
+(cd "$WORK_DIR" && bash render-xray-config.sh 2>&1) || true
+CONFIG_PERMS=$(stat -f "%OLp" "$WORK_DIR/xray/config.json" 2>/dev/null \
+  || stat -c "%a" "$WORK_DIR/xray/config.json" 2>/dev/null || echo "unknown")
+if [[ "$CONFIG_PERMS" == "600" ]]; then
+  report PASS "xray/config.json permissions = 600"
+else
+  report FAIL "xray/config.json permissions = $CONFIG_PERMS (expected 600)"
 fi
 
 echo ""

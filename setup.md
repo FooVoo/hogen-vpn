@@ -139,8 +139,10 @@ This script:
 3. Obtains a Let's Encrypt certificate via Certbot
 4. Creates `/etc/nginx/htpasswd-vpn` for Basic Auth
 5. Renders the credentials page to `$CREDENTIALS_WEBROOT/index.html`
-6. Opens all required UFW ports (80, 443, 2083, 8388 tcp/udp, 8443, 500/udp, 4500/udp, SSH)
-7. Installs `xray-rotate.timer` (fires every 2 hours, 10-minute random jitter)
+6. Allows SSH in UFW first (prevents lockout), then opens all required ports, then calls `ufw --force enable`
+7. Installs `/etc/nginx/conf.d/vpn-ratelimit.conf` (5 req/min limit per IP on credentials page)
+8. Installs and enables **fail2ban** with SSH + nginx-http-auth jails
+9. Installs `xray-rotate.timer` (fires every 2 hours, 10-minute random jitter)
 
 After the script finishes, check nginx:
 

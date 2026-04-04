@@ -31,6 +31,7 @@ cat > mtg/config.toml <<EOF
 secret = "${MTG_SECRET}"
 bind-to = "0.0.0.0:3128"
 EOF
+chmod 600 mtg/config.toml
 
 echo "Generating VLESS credentials..."
 if [[ -f /proc/sys/kernel/random/uuid ]]; then
@@ -165,6 +166,7 @@ CREDENTIALS_DOMAIN=${CREDENTIALS_DOMAIN}
 # Webroot for the credentials page (default: /var/www/vpn)
 CREDENTIALS_WEBROOT=/var/www/vpn
 EOF
+chmod 600 .env
 
 "$SCRIPT_DIR/render-xray-config.sh"
 

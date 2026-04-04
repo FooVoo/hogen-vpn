@@ -18,9 +18,10 @@ WEBROOT="${CREDENTIALS_WEBROOT:-/var/www/vpn}"
 VHOST_PATH="${NGINX_VHOST_PATH:-/etc/nginx/sites-available/vpn}"
 
 # Install tools
-apt-get install -y --quiet certbot python3-certbot-nginx gettext-base
+apt-get install -y --quiet certbot python3-certbot-nginx gettext-base fail2ban
 
-# Open firewall ports
+# Open firewall — SSH first to prevent lockout
+ufw allow OpenSSH comment "SSH"
 ufw allow 80/tcp   comment "HTTP"
 ufw allow 443/tcp  comment "HTTPS"
 ufw allow 2083/tcp comment "MTProxy"
@@ -29,6 +30,7 @@ ufw allow 8388/tcp comment "Shadowsocks"
 ufw allow 8388/udp comment "Shadowsocks"
 ufw allow 500/udp  comment "IKEv2"
 ufw allow 4500/udp comment "IKEv2 NAT-T"
+ufw --force enable
 
 # Generate HTML credentials page
 "$SCRIPT_DIR/render-credentials-page.sh" "$WEBROOT"
@@ -51,6 +53,16 @@ systemctl reload nginx
 # Get SSL certificate (certbot will update the vhost automatically)
 certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos \
   --register-unsafely-without-email --redirect
+
+# Install nginx rate limiting zone (must be in http{} context, loaded before vhost)
+cp "$SCRIPT_DIR/web/nginx-ratelimit.conf" /etc/nginx/conf.d/vpn-ratelimit.conf
+nginx -t && systemctl reload nginx
+
+# Configure and enable fail2ban
+mkdir -p /etc/fail2ban/jail.d
+cp "$SCRIPT_DIR/fail2ban/jail.d/hogen-vpn.conf" /etc/fail2ban/jail.d/hogen-vpn.conf
+systemctl enable --now fail2ban
+fail2ban-client reload || true
 
 ROTATION_SERVICE_PATH="/etc/systemd/system/vpn-reality-cover-rotate.service"
 ROTATION_TIMER_PATH="/etc/systemd/system/vpn-reality-cover-rotate.timer"
