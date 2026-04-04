@@ -26,7 +26,18 @@ docker pull ghcr.io/xtls/xray-core:v26.3.27 --quiet >/dev/null
 
 echo "Generating MTProxy secret..."
 mkdir -p mtg
-MTG_SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret google.com)
+MTG_COVER_DOMAINS_LIST=(
+  "web.telegram.org"   "desktop.telegram.org"
+  "www.google.com"     "www.youtube.com"      "www.cloudflare.com"
+  "www.microsoft.com"  "www.amazon.com"       "www.apple.com"
+  "www.netflix.com"    "www.dropbox.com"
+  "www.yandex.ru"      "www.vk.com"           "mail.ru"
+  "www.ozon.ru"        "www.wildberries.ru"   "www.sberbank.ru"
+  "www.tinkoff.ru"     "www.gosuslugi.ru"     "habr.com"   "www.rbc.ru"
+)
+MTG_COVER_DOMAIN="${MTG_COVER_DOMAINS_LIST[$RANDOM % ${#MTG_COVER_DOMAINS_LIST[@]}]}"
+MTG_COVER_DOMAINS=$(IFS=,; echo "${MTG_COVER_DOMAINS_LIST[*]}")
+MTG_SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret "$MTG_COVER_DOMAIN")
 cat > mtg/config.toml <<EOF
 secret = "${MTG_SECRET}"
 bind-to = "0.0.0.0:3128"
@@ -137,6 +148,8 @@ SERVER_IP=${SERVER_IP}
 
 MTG_SECRET=${MTG_SECRET}
 MTG_PORT=${MTG_PORT}
+MTG_COVER_DOMAIN=${MTG_COVER_DOMAIN}
+MTG_COVER_DOMAINS=${MTG_COVER_DOMAINS}
 MTG_LINK="${MTG_LINK}"
 
 XRAY_UUID=${XRAY_UUID}
@@ -177,6 +190,7 @@ echo "  mtg/config.toml   — MTProxy config"
 echo "  xray/config.json  — VLESS + Shadowsocks config"
 echo ""
 echo "REALITY cover domain:  ${XRAY_SNI}"
+echo "MTProxy cover domain:  ${MTG_COVER_DOMAIN}"
 echo "Shadowsocks method:    ${SS_METHOD}"
 echo "IKEv2 user:            ${IKE_USER}"
 echo ""

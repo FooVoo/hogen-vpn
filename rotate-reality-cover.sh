@@ -29,6 +29,11 @@ set -a; source "$ENV_FILE"; set +a
 [[ -n "${PAGE_PASSWORD:-}" ]]    || { echo "ERROR: PAGE_PASSWORD is missing"; exit 1; }
 XRAY_ROTATE_HOURS="${XRAY_ROTATE_HOURS:-2}"
 
+# MTProxy fingerprint vars — provide defaults so existing deployments without
+# these vars still work on first rotation after upgrade
+MTG_COVER_DOMAINS="${MTG_COVER_DOMAINS:-web.telegram.org,www.google.com,www.youtube.com,www.cloudflare.com,www.microsoft.com,www.yandex.ru,www.vk.com,mail.ru,www.ozon.ru,habr.com}"
+MTG_COVER_DOMAIN="${MTG_COVER_DOMAIN:-google.com}"
+
 IFS=',' read -r -a COVER_DOMAIN_POOL <<< "$XRAY_COVER_DOMAINS"
 ROTATABLE_DOMAINS=()
 for COVER_DOMAIN in "${COVER_DOMAIN_POOL[@]}"; do
@@ -92,6 +97,28 @@ XRAY_SNI="$NEXT_DOMAIN"
 XRAY_DEST="${XRAY_SNI}:443"
 VLESS_URI="vless://${XRAY_UUID}@${SERVER_IP}:8443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${XRAY_SNI}&fp=chrome&pbk=${XRAY_PUBLIC_KEY}&sid=${XRAY_SHORT_ID}&type=tcp#VPN"
 
+# --- MTProxy FakeTLS fingerprint rotation ---
+CURRENT_MTG_DOMAIN="$MTG_COVER_DOMAIN"
+IFS=',' read -r -a MTG_DOMAIN_POOL <<< "$MTG_COVER_DOMAINS"
+MTG_CANDIDATES=()
+for D in "${MTG_DOMAIN_POOL[@]}"; do
+  [[ -n "$D" && "$D" != "$CURRENT_MTG_DOMAIN" ]] && MTG_CANDIDATES+=("$D")
+done
+if (( ${#MTG_CANDIDATES[@]} > 0 )); then
+  NEXT_MTG_DOMAIN="${MTG_CANDIDATES[$RANDOM % ${#MTG_CANDIDATES[@]}]}"
+else
+  NEXT_MTG_DOMAIN="$CURRENT_MTG_DOMAIN"
+fi
+MTG_SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret "$NEXT_MTG_DOMAIN")
+MTG_COVER_DOMAIN="$NEXT_MTG_DOMAIN"
+MTG_LINK="https://t.me/proxy?server=${SERVER_IP}&port=${MTG_PORT}&secret=${MTG_SECRET}"
+mkdir -p "${SCRIPT_DIR}/mtg"
+cat > "${SCRIPT_DIR}/mtg/config.toml" <<EOF
+secret = "${MTG_SECRET}"
+bind-to = "0.0.0.0:3128"
+EOF
+chmod 600 "${SCRIPT_DIR}/mtg/config.toml"
+
 TMP_ENV="$(mktemp)"
 chmod 600 "$TMP_ENV"
 trap 'rm -f "$TMP_ENV"' EXIT
@@ -100,6 +127,8 @@ SERVER_IP=${SERVER_IP}
 
 MTG_SECRET=${MTG_SECRET}
 MTG_PORT=${MTG_PORT}
+MTG_COVER_DOMAIN=${MTG_COVER_DOMAIN}
+MTG_COVER_DOMAINS=${MTG_COVER_DOMAINS}
 MTG_LINK="${MTG_LINK}"
 
 XRAY_UUID=${XRAY_UUID}
@@ -133,6 +162,7 @@ mv "$TMP_ENV" "$ENV_FILE"
 "$SCRIPT_DIR/render-xray-config.sh"
 "$SCRIPT_DIR/render-credentials-page.sh" "$WEBROOT"
 
-docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --force-recreate xray >/dev/null
+docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --force-recreate xray mtg >/dev/null
 
 echo "Rotated REALITY cover domain: ${CURRENT_DOMAIN} -> ${XRAY_SNI}"
+echo "Rotated MTProxy fingerprint:  ${CURRENT_MTG_DOMAIN} -> ${MTG_COVER_DOMAIN}"

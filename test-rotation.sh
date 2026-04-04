@@ -28,12 +28,31 @@ cp "$SCRIPT_DIR/render-xray-config.sh" "$WORK_DIR/"
 cp "$SCRIPT_DIR/render-credentials-page.sh" "$WORK_DIR/"
 cp -r "$SCRIPT_DIR/web" "$WORK_DIR/"
 chmod +x "$WORK_DIR/render-xray-config.sh" "$WORK_DIR/render-credentials-page.sh"
-
-# Create a modified rotate script that skips docker compose
-sed 's|docker compose.*||' "$SCRIPT_DIR/rotate-reality-cover.sh" > "$WORK_DIR/rotate-reality-cover.sh"
+cp "$SCRIPT_DIR/rotate-reality-cover.sh" "$WORK_DIR/"
 chmod +x "$WORK_DIR/rotate-reality-cover.sh"
 
+# Mock docker binary — intercepts compose restarts and mtg secret generation
+mkdir -p "$WORK_DIR/bin"
+cat > "$WORK_DIR/bin/docker" <<'MOCKEOF'
+#!/usr/bin/env bash
+case "${1:-}" in
+  compose) exit 0 ;;
+  run)
+    if [[ "${3:-}" == "nineseconds/mtg:2" && "${4:-}" == "generate-secret" ]]; then
+      DOMAIN="${5:-google.com}"
+      printf 'eeMOCKSECRET_%s\n' "${DOMAIN//[^a-zA-Z0-9._-]/_}"
+      exit 0
+    fi
+    ;;
+esac
+echo "Mock docker: unhandled: $*" >&2
+exit 0
+MOCKEOF
+chmod +x "$WORK_DIR/bin/docker"
+export PATH="$WORK_DIR/bin:$PATH"
+
 MOCK_DOMAINS="www.microsoft.com,www.cloudflare.com,github.com,www.google.com,www.apple.com"
+MOCK_MTG_DOMAINS="web.telegram.org,www.google.com,www.yandex.ru"
 MOCK_SS_PASSWORD="dGVzdHBhc3N3b3JkMTIzNDU2Nzg5MDEyMzQ1Njc4OTA="
 
 write_mock_env() {
@@ -42,6 +61,8 @@ write_mock_env() {
 SERVER_IP=1.2.3.4
 MTG_SECRET=ee00000000000000000000000000000000676f6f676c652e636f6d
 MTG_PORT=2083
+MTG_COVER_DOMAIN=web.telegram.org
+MTG_COVER_DOMAINS=${MOCK_MTG_DOMAINS}
 MTG_LINK="https://t.me/proxy?server=1.2.3.4&port=2083&secret=ee00000000000000000000000000000000676f6f676c652e636f6d"
 XRAY_UUID=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
 XRAY_PRIVATE_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
@@ -66,7 +87,7 @@ CREDENTIALS_WEBROOT=/var/www/vpn
 EOF
 }
 
-mkdir -p "$WORK_DIR/xray"
+mkdir -p "$WORK_DIR/xray" "$WORK_DIR/mtg"
 
 echo ""
 echo "=== Test 1: Domain changes after rotation ==="
@@ -164,6 +185,8 @@ cat > "$WORK_DIR/.env" <<'EOF'
 SERVER_IP=1.2.3.4
 MTG_SECRET=ee00000000000000000000000000000000676f6f676c652e636f6d
 MTG_PORT=2083
+MTG_COVER_DOMAIN=web.telegram.org
+MTG_COVER_DOMAINS=web.telegram.org,www.google.com,www.yandex.ru
 MTG_LINK="https://t.me/proxy?server=1.2.3.4&port=2083&secret=ee00000000000000000000000000000000676f6f676c652e636f6d"
 XRAY_UUID=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
 XRAY_PRIVATE_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
@@ -235,6 +258,59 @@ if [[ "$CONFIG_PERMS" == "600" ]]; then
   report PASS "xray/config.json permissions = 600"
 else
   report FAIL "xray/config.json permissions = $CONFIG_PERMS (expected 600)"
+fi
+
+echo ""
+echo "=== Test 12: MTG_COVER_DOMAIN changes after rotation ==="
+write_mock_env "www.microsoft.com"
+(cd "$WORK_DIR" && WEBROOT="$WEBROOT" bash rotate-reality-cover.sh 2>&1) || true
+NEW_MTG_DOMAIN=$(grep '^MTG_COVER_DOMAIN=' "$WORK_DIR/.env" | cut -d= -f2)
+if [[ "$NEW_MTG_DOMAIN" != "web.telegram.org" && -n "$NEW_MTG_DOMAIN" ]]; then
+  report PASS "MTG_COVER_DOMAIN changed from web.telegram.org to $NEW_MTG_DOMAIN"
+else
+  report FAIL "MTG_COVER_DOMAIN did not change (still '$NEW_MTG_DOMAIN')"
+fi
+
+echo ""
+echo "=== Test 13: mtg/config.toml updated with new secret ==="
+if [[ -f "$WORK_DIR/mtg/config.toml" ]]; then
+  TOML_SECRET=$(grep '^secret' "$WORK_DIR/mtg/config.toml" | cut -d'"' -f2)
+  ENV_MTG_SECRET=$(grep '^MTG_SECRET=' "$WORK_DIR/.env" | cut -d= -f2)
+  if [[ -n "$TOML_SECRET" && "$TOML_SECRET" == "$ENV_MTG_SECRET" ]]; then
+    report PASS "mtg/config.toml secret matches MTG_SECRET in .env ($TOML_SECRET)"
+  else
+    report FAIL "mtg/config.toml secret ('$TOML_SECRET') != MTG_SECRET ('$ENV_MTG_SECRET')"
+  fi
+else
+  report FAIL "mtg/config.toml was not written"
+fi
+
+echo ""
+echo "=== Test 14: MTG_COVER_DOMAINS pool preserved after rotation ==="
+MTG_POOL_AFTER=$(grep '^MTG_COVER_DOMAINS=' "$WORK_DIR/.env" | cut -d= -f2)
+if [[ "$MTG_POOL_AFTER" == "$MOCK_MTG_DOMAINS" ]]; then
+  report PASS "MTG_COVER_DOMAINS pool unchanged after rotation"
+else
+  report FAIL "MTG_COVER_DOMAINS changed: '$MTG_POOL_AFTER' (expected '$MOCK_MTG_DOMAINS')"
+fi
+
+echo ""
+echo "=== Test 15: MTG_LINK updated in .env ==="
+NEW_MTG_LINK=$(grep '^MTG_LINK=' "$WORK_DIR/.env" | head -1)
+if echo "$NEW_MTG_LINK" | grep -q "MOCK"; then
+  report PASS "MTG_LINK contains regenerated mock secret"
+else
+  report FAIL "MTG_LINK not updated: $NEW_MTG_LINK"
+fi
+
+echo ""
+echo "=== Test 16: mtg/config.toml permissions = 600 ==="
+MTG_PERMS=$(stat -f '%Lp' "$WORK_DIR/mtg/config.toml" 2>/dev/null \
+  || stat -c '%a' "$WORK_DIR/mtg/config.toml" 2>/dev/null || echo "unknown")
+if [[ "$MTG_PERMS" == "600" ]]; then
+  report PASS "mtg/config.toml permissions = 600"
+else
+  report FAIL "mtg/config.toml permissions = $MTG_PERMS (expected 600)"
 fi
 
 echo ""
