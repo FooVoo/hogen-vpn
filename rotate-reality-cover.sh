@@ -20,7 +20,7 @@ set -a; source "$ENV_FILE"; set +a
 [[ -n "${MTG_LINK:-}" ]] || { echo "ERROR: MTG_LINK is missing"; exit 1; }
 [[ -n "${PAGE_USER:-}" ]] || { echo "ERROR: PAGE_USER is missing"; exit 1; }
 [[ -n "${PAGE_PASSWORD:-}" ]] || { echo "ERROR: PAGE_PASSWORD is missing"; exit 1; }
-XRAY_ROTATE_HOURS="${XRAY_ROTATE_HOURS:-6}"
+XRAY_ROTATE_HOURS="${XRAY_ROTATE_HOURS:-2}"
 
 IFS=',' read -r -a COVER_DOMAIN_POOL <<< "$XRAY_COVER_DOMAINS"
 ROTATABLE_DOMAINS=()

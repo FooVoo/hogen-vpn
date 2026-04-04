@@ -69,9 +69,9 @@ EOF
 Description=Rotate Xray REALITY cover domain every ${ROTATION_INTERVAL} hours
 
 [Timer]
-OnBootSec=1h
+OnBootSec=15m
 OnUnitActiveSec=${ROTATION_INTERVAL}h
-RandomizedDelaySec=30m
+RandomizedDelaySec=10m
 Persistent=true
 Unit=vpn-reality-cover-rotate.service
 

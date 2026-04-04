@@ -104,7 +104,7 @@ if [[ -z "$XRAY_SNI" || -z "$XRAY_PRIVATE_KEY" || -z "$XRAY_PUBLIC_KEY" ]]; then
   exit 1
 fi
 XRAY_COVER_DOMAINS=$(IFS=,; echo "${REALITY_COVER_DOMAINS[*]}")
-XRAY_ROTATE_HOURS=6
+XRAY_ROTATE_HOURS=2
 XRAY_DEST="${XRAY_SNI}:443"
 
 echo "Generating page credentials..."
