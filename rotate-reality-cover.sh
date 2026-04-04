@@ -10,16 +10,20 @@ WEBROOT="${WEBROOT:-/var/www/vpn}"
 set -a; source "$ENV_FILE"; set +a
 
 [[ -n "${XRAY_COVER_DOMAINS:-}" ]] || { echo "ERROR: XRAY_COVER_DOMAINS is missing"; exit 1; }
-[[ -n "${XRAY_UUID:-}" ]] || { echo "ERROR: XRAY_UUID is missing"; exit 1; }
+[[ -n "${XRAY_UUID:-}" ]]        || { echo "ERROR: XRAY_UUID is missing"; exit 1; }
 [[ -n "${XRAY_PRIVATE_KEY:-}" ]] || { echo "ERROR: XRAY_PRIVATE_KEY is missing"; exit 1; }
-[[ -n "${XRAY_PUBLIC_KEY:-}" ]] || { echo "ERROR: XRAY_PUBLIC_KEY is missing"; exit 1; }
-[[ -n "${XRAY_SHORT_ID:-}" ]] || { echo "ERROR: XRAY_SHORT_ID is missing"; exit 1; }
-[[ -n "${SERVER_IP:-}" ]] || { echo "ERROR: SERVER_IP is missing"; exit 1; }
-[[ -n "${MTG_SECRET:-}" ]] || { echo "ERROR: MTG_SECRET is missing"; exit 1; }
-[[ -n "${MTG_PORT:-}" ]] || { echo "ERROR: MTG_PORT is missing"; exit 1; }
-[[ -n "${MTG_LINK:-}" ]] || { echo "ERROR: MTG_LINK is missing"; exit 1; }
-[[ -n "${PAGE_USER:-}" ]] || { echo "ERROR: PAGE_USER is missing"; exit 1; }
-[[ -n "${PAGE_PASSWORD:-}" ]] || { echo "ERROR: PAGE_PASSWORD is missing"; exit 1; }
+[[ -n "${XRAY_PUBLIC_KEY:-}" ]]  || { echo "ERROR: XRAY_PUBLIC_KEY is missing"; exit 1; }
+[[ -n "${XRAY_SHORT_ID:-}" ]]    || { echo "ERROR: XRAY_SHORT_ID is missing"; exit 1; }
+[[ -n "${SERVER_IP:-}" ]]        || { echo "ERROR: SERVER_IP is missing"; exit 1; }
+[[ -n "${MTG_SECRET:-}" ]]       || { echo "ERROR: MTG_SECRET is missing"; exit 1; }
+[[ -n "${MTG_PORT:-}" ]]         || { echo "ERROR: MTG_PORT is missing"; exit 1; }
+[[ -n "${MTG_LINK:-}" ]]         || { echo "ERROR: MTG_LINK is missing"; exit 1; }
+[[ -n "${SS_METHOD:-}" ]]        || { echo "ERROR: SS_METHOD is missing"; exit 1; }
+[[ -n "${SS_PORT:-}" ]]          || { echo "ERROR: SS_PORT is missing"; exit 1; }
+[[ -n "${SS_PASSWORD:-}" ]]      || { echo "ERROR: SS_PASSWORD is missing"; exit 1; }
+[[ -n "${SS_URI:-}" ]]           || { echo "ERROR: SS_URI is missing"; exit 1; }
+[[ -n "${PAGE_USER:-}" ]]        || { echo "ERROR: PAGE_USER is missing"; exit 1; }
+[[ -n "${PAGE_PASSWORD:-}" ]]    || { echo "ERROR: PAGE_PASSWORD is missing"; exit 1; }
 XRAY_ROTATE_HOURS="${XRAY_ROTATE_HOURS:-2}"
 
 IFS=',' read -r -a COVER_DOMAIN_POOL <<< "$XRAY_COVER_DOMAINS"
@@ -104,6 +108,11 @@ XRAY_DEST=${XRAY_DEST}
 XRAY_COVER_DOMAINS=${XRAY_COVER_DOMAINS}
 XRAY_ROTATE_HOURS=${XRAY_ROTATE_HOURS}
 VLESS_URI="${VLESS_URI}"
+
+SS_METHOD=${SS_METHOD}
+SS_PORT=${SS_PORT}
+SS_PASSWORD="${SS_PASSWORD}"
+SS_URI="${SS_URI}"
 
 PAGE_USER=${PAGE_USER}
 PAGE_PASSWORD=${PAGE_PASSWORD}

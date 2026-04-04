@@ -19,7 +19,7 @@ export XRAY_ROTATION_MESSAGE
 
 # Substitute env vars in HTML template
 # List variables explicitly to avoid clobbering nginx's own $uri / $host etc.
-envsubst '${SERVER_IP}${MTG_PORT}${MTG_SECRET}${MTG_LINK}${XRAY_UUID}${XRAY_PUBLIC_KEY}${XRAY_SHORT_ID}${XRAY_SNI}${VLESS_URI}${XRAY_ROTATION_MESSAGE}' \
+envsubst '${SERVER_IP}${MTG_PORT}${MTG_SECRET}${MTG_LINK}${XRAY_UUID}${XRAY_PUBLIC_KEY}${XRAY_SHORT_ID}${XRAY_SNI}${VLESS_URI}${XRAY_ROTATION_MESSAGE}${SS_URI}${SS_PORT}${SS_METHOD}${SS_PASSWORD}' \
   < /web/index.html.template \
   > /usr/share/nginx/html/index.html
 

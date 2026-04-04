@@ -8,11 +8,14 @@ ENV_FILE="${SCRIPT_DIR}/.env"
 
 set -a; source "$ENV_FILE"; set +a
 
-[[ -n "${XRAY_UUID:-}" ]] || { echo "ERROR: XRAY_UUID is missing"; exit 1; }
+[[ -n "${XRAY_UUID:-}" ]]        || { echo "ERROR: XRAY_UUID is missing"; exit 1; }
 [[ -n "${XRAY_PRIVATE_KEY:-}" ]] || { echo "ERROR: XRAY_PRIVATE_KEY is missing"; exit 1; }
-[[ -n "${XRAY_SHORT_ID:-}" ]] || { echo "ERROR: XRAY_SHORT_ID is missing"; exit 1; }
-[[ -n "${XRAY_SNI:-}" ]] || { echo "ERROR: XRAY_SNI is missing"; exit 1; }
-[[ -n "${XRAY_DEST:-}" ]] || { echo "ERROR: XRAY_DEST is missing"; exit 1; }
+[[ -n "${XRAY_SHORT_ID:-}" ]]    || { echo "ERROR: XRAY_SHORT_ID is missing"; exit 1; }
+[[ -n "${XRAY_SNI:-}" ]]         || { echo "ERROR: XRAY_SNI is missing"; exit 1; }
+[[ -n "${XRAY_DEST:-}" ]]        || { echo "ERROR: XRAY_DEST is missing"; exit 1; }
+[[ -n "${SS_PASSWORD:-}" ]]      || { echo "ERROR: SS_PASSWORD is missing"; exit 1; }
+[[ -n "${SS_METHOD:-}" ]]        || { echo "ERROR: SS_METHOD is missing"; exit 1; }
+[[ -n "${SS_PORT:-}" ]]          || { echo "ERROR: SS_PORT is missing"; exit 1; }
 
 mkdir -p "${SCRIPT_DIR}/xray"
 cat > "${SCRIPT_DIR}/xray/config.json" <<EOF
@@ -47,6 +50,16 @@ cat > "${SCRIPT_DIR}/xray/config.json" <<EOF
             "sniffing": {
                 "enabled": true,
                 "destOverride": ["http", "tls", "quic"]
+            }
+        },
+        {
+            "listen": "0.0.0.0",
+            "port": ${SS_PORT},
+            "protocol": "shadowsocks",
+            "settings": {
+                "method": "${SS_METHOD}",
+                "password": "${SS_PASSWORD}",
+                "network": "tcp,udp"
             }
         }
     ],

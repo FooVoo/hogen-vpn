@@ -114,6 +114,13 @@ PAGE_PASSWORD=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
 
 MTG_PORT=2083
 
+echo "Generating Shadowsocks credentials..."
+SS_METHOD="2022-blake3-aes-256-gcm"
+SS_PORT=8388
+SS_PASSWORD=$(openssl rand -base64 32 | tr -d '\n')
+SS_USERINFO=$(printf '%s:%s' "$SS_METHOD" "$SS_PASSWORD" | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+SS_URI="ss://${SS_USERINFO}@${SERVER_IP}:${SS_PORT}#SS-VPN"
+
 # Composite connection strings
 MTG_LINK="https://t.me/proxy?server=${SERVER_IP}&port=${MTG_PORT}&secret=${MTG_SECRET}"
 VLESS_URI="vless://${XRAY_UUID}@${SERVER_IP}:8443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${XRAY_SNI}&fp=chrome&pbk=${XRAY_PUBLIC_KEY}&sid=${XRAY_SHORT_ID}&type=tcp#VPN"
@@ -136,6 +143,11 @@ XRAY_COVER_DOMAINS=${XRAY_COVER_DOMAINS}
 XRAY_ROTATE_HOURS=${XRAY_ROTATE_HOURS}
 VLESS_URI="${VLESS_URI}"
 
+SS_METHOD=${SS_METHOD}
+SS_PORT=${SS_PORT}
+SS_PASSWORD="${SS_PASSWORD}"
+SS_URI="${SS_URI}"
+
 PAGE_USER=${PAGE_USER}
 PAGE_PASSWORD=${PAGE_PASSWORD}
 
@@ -151,9 +163,10 @@ echo ""
 echo "Done. Files written:"
 echo "  .env              — all credentials"
 echo "  mtg/config.toml   — MTProxy config"
-echo "  xray/config.json  — VLESS config"
+echo "  xray/config.json  — VLESS + Shadowsocks config"
 echo ""
-echo "REALITY cover domain: ${XRAY_SNI}"
+echo "REALITY cover domain:  ${XRAY_SNI}"
+echo "Shadowsocks method:    ${SS_METHOD}"
 echo ""
 echo "Credentials page login:  ${PAGE_USER} / ${PAGE_PASSWORD}"
 echo ""

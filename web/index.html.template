@@ -342,13 +342,81 @@
       </div>
     </div>
 
+    <!-- Shadowsocks card -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Shadowsocks</span>
+        <span class="card-subtitle">весь трафик — совместим с большинством клиентов</span>
+      </div>
+
+      <div class="qr-row">
+        <div id="ss-qr-canvas"></div>
+        <div class="qr-hint">
+          <strong>Сканируй QR-код в приложении:</strong>
+          <div class="app-row">
+            <span class="app-name">Android</span>
+            <a href="https://play.google.com/store/apps/details?id=com.v2ray.ang" target="_blank">v2rayNG</a>
+            <span style="color:#334155">·</span>
+            <a href="https://github.com/shadowsocks/shadowsocks-android/releases" target="_blank">SS Android</a>
+          </div>
+          <div class="app-row">
+            <span class="app-name">iPhone</span>
+            <a href="https://apps.apple.com/app/shadowrocket/id932747118" target="_blank">Shadowrocket</a>
+            <span style="color:#334155">·</span>
+            <a href="https://apps.apple.com/app/id6446814690" target="_blank">V2Box</a>
+          </div>
+          <div class="app-row">
+            <span class="app-name">Windows</span>
+            <a href="https://github.com/shadowsocks/shadowsocks-windows/releases" target="_blank">SS Windows</a>
+            <span style="color:#334155">·</span>
+            <a href="https://github.com/2dust/v2rayN/releases" target="_blank">v2rayN</a>
+          </div>
+          <div class="app-row">
+            <span class="app-name">macOS</span>
+            <a href="https://apps.apple.com/app/hiddify-proxy-vpn/id6596777532" target="_blank">Hiddify</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">URI (импорт по ссылке)</div>
+      <div class="vless-uri-copy">
+        <code id="ss-uri">${SS_URI}</code>
+        <button class="copy-btn" onclick="copy(this, document.getElementById('ss-uri').textContent)">Копировать</button>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-label">Параметры вручную</div>
+      <div class="fields">
+        <div class="field">
+          <label>Сервер</label>
+          <code>${SERVER_IP}</code>
+          <button class="copy-btn" onclick="copy(this, '${SERVER_IP}')">Копировать</button>
+        </div>
+        <div class="field">
+          <label>Порт</label>
+          <code>${SS_PORT}</code>
+          <button class="copy-btn" onclick="copy(this, '${SS_PORT}')">Копировать</button>
+        </div>
+        <div class="field">
+          <label>Метод</label>
+          <code>${SS_METHOD}</code>
+          <button class="copy-btn" onclick="copy(this, '${SS_METHOD}')">Копировать</button>
+        </div>
+        <div class="field">
+          <label>Пароль</label>
+          <code>${SS_PASSWORD}</code>
+          <button class="copy-btn" onclick="copy(this, '${SS_PASSWORD}')">Копировать</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
     integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSi2jPeeaHnLj3GlWPjHFzXQy0f5EWFVVoaA=="
     crossorigin="anonymous"></script>
   <script>
-    // QR code
+    // VLESS QR code
     try {
       new QRCode(document.getElementById('qr-canvas'), {
         text: document.getElementById('vless-uri').textContent.trim(),
@@ -360,6 +428,20 @@
       });
     } catch (e) {
       document.getElementById('qr-canvas').textContent = '(QR недоступен)';
+    }
+
+    // Shadowsocks QR code
+    try {
+      new QRCode(document.getElementById('ss-qr-canvas'), {
+        text: document.getElementById('ss-uri').textContent.trim(),
+        width: 160,
+        height: 160,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } catch (e) {
+      document.getElementById('ss-qr-canvas').textContent = '(QR недоступен)';
     }
 
     // Copy to clipboard

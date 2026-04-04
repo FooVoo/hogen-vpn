@@ -34,6 +34,7 @@ sed 's|docker compose.*||' "$SCRIPT_DIR/rotate-reality-cover.sh" > "$WORK_DIR/ro
 chmod +x "$WORK_DIR/rotate-reality-cover.sh"
 
 MOCK_DOMAINS="www.microsoft.com,www.cloudflare.com,github.com,www.google.com,www.apple.com"
+MOCK_SS_PASSWORD="dGVzdHBhc3N3b3JkMTIzNDU2Nzg5MDEyMzQ1Njc4OTA="
 
 write_mock_env() {
   local sni="${1:-www.microsoft.com}"
@@ -49,8 +50,12 @@ XRAY_SHORT_ID=abcdef0123456789
 XRAY_SNI=${sni}
 XRAY_DEST=${sni}:443
 XRAY_COVER_DOMAINS=${MOCK_DOMAINS}
-XRAY_ROTATE_HOURS=6
+XRAY_ROTATE_HOURS=2
 VLESS_URI="vless://aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee@1.2.3.4:8443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${sni}&fp=chrome&pbk=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=&sid=abcdef0123456789&type=tcp#VPN"
+SS_METHOD=2022-blake3-aes-256-gcm
+SS_PORT=8388
+SS_PASSWORD="${MOCK_SS_PASSWORD}"
+SS_URI="ss://$(printf '%s:%s' '2022-blake3-aes-256-gcm' "${MOCK_SS_PASSWORD}" | openssl base64 -A | tr '+/' '-_' | tr -d '=')@1.2.3.4:8388#SS-VPN"
 PAGE_USER=admin
 PAGE_PASSWORD=testpass1234
 EOF
@@ -162,8 +167,12 @@ XRAY_SHORT_ID=abcdef0123456789
 XRAY_SNI=www.microsoft.com
 XRAY_DEST=www.microsoft.com:443
 XRAY_COVER_DOMAINS=www.microsoft.com
-XRAY_ROTATE_HOURS=6
+XRAY_ROTATE_HOURS=2
 VLESS_URI="vless://test@1.2.3.4:8443#VPN"
+SS_METHOD=2022-blake3-aes-256-gcm
+SS_PORT=8388
+SS_PASSWORD="dGVzdHBhc3N3b3JkMTIzNDU2Nzg5MDEyMzQ1Njc4OTA="
+SS_URI="ss://dGVzdA==@1.2.3.4:8388#SS-VPN"
 PAGE_USER=admin
 PAGE_PASSWORD=testpass1234
 EOF
