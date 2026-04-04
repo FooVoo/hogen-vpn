@@ -83,7 +83,7 @@ TimeoutStopSec=30
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
-systemctl enable hogen-vpn.service
+systemctl enable --now hogen-vpn.service
 echo "Docker stack auto-start enabled (hogen-vpn.service)."
 
 ROTATION_SERVICE_PATH="/etc/systemd/system/vpn-reality-cover-rotate.service"
@@ -143,3 +143,6 @@ echo ""
 echo "Done."
 echo "Credentials page: https://${DOMAIN}/${PAGE_TOKEN}/"
 echo "Share this URL — it is the only credential needed."
+echo ""
+echo "Container status:"
+docker compose -f "${SCRIPT_DIR}/docker-compose.yml" ps

@@ -23,6 +23,7 @@ command -v docker >/dev/null 2>&1 || { echo "ERROR: docker is not installed"; ex
 echo "Pulling images..."
 docker pull nineseconds/mtg:2 --quiet >/dev/null
 docker pull ghcr.io/xtls/xray-core:26.3.27 --quiet >/dev/null
+docker pull hwdsl2/ipsec-vpn-server --quiet >/dev/null
 
 echo "Generating MTProxy secret..."
 mkdir -p mtg
