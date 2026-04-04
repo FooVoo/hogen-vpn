@@ -12,6 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 set -a; source "$SCRIPT_DIR/.env"; set +a
 
 [[ -n "${CREDENTIALS_DOMAIN:-}" ]] || { echo "ERROR: CREDENTIALS_DOMAIN is missing in .env"; exit 1; }
+[[ -n "${PAGE_TOKEN:-}" ]]        || { echo "ERROR: PAGE_TOKEN is missing — re-run generate-secrets.sh"; exit 1; }
 
 DOMAIN="${CREDENTIALS_DOMAIN}"
 WEBROOT="${CREDENTIALS_WEBROOT:-/var/www/vpn}"
@@ -32,14 +33,8 @@ ufw allow 500/udp  comment "IKEv2"
 ufw allow 4500/udp comment "IKEv2 NAT-T"
 ufw --force enable
 
-# Generate HTML credentials page
+# Generate HTML credentials page (written to $WEBROOT/$PAGE_TOKEN/)
 "$SCRIPT_DIR/render-credentials-page.sh" "$WEBROOT"
-
-# Generate htpasswd
-printf '%s:%s\n' "$PAGE_USER" "$(openssl passwd -apr1 "$PAGE_PASSWORD")" \
-  > /etc/nginx/htpasswd-vpn
-chown root:www-data /etc/nginx/htpasswd-vpn
-chmod 640 /etc/nginx/htpasswd-vpn
 
 # Install nginx rate limiting zone first — vhost references zone=vpn_auth
 # so this must be in place before the first nginx -t
@@ -146,5 +141,5 @@ fi
 
 echo ""
 echo "Done."
-echo "Credentials page: https://${DOMAIN}"
-echo "Login: ${PAGE_USER} / ${PAGE_PASSWORD}"
+echo "Credentials page: https://${DOMAIN}/${PAGE_TOKEN}/"
+echo "Share this URL — it is the only credential needed."

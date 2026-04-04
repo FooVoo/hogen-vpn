@@ -4,8 +4,6 @@ server {
     server_tokens off;
 
     location / {
-        auth_basic "VPN";
-        auth_basic_user_file /etc/nginx/htpasswd-vpn;
         root ${WEBROOT};
         index index.html;
 

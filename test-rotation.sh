@@ -82,6 +82,7 @@ IKE_USER=vpnuser
 IKE_PASSWORD=mockikepass
 PAGE_USER=admin
 PAGE_PASSWORD=testpass1234
+PAGE_TOKEN=abcdef1234567890abcdef1234567890
 CREDENTIALS_DOMAIN=vpn.example.com
 CREDENTIALS_WEBROOT=/var/www/vpn
 EOF
@@ -139,9 +140,10 @@ fi
 
 echo ""
 echo "=== Test 4: Credentials page rendered with new SNI ==="
-if [[ -f "$WEBROOT/index.html" ]]; then
-  if grep -q "$NEW_SNI" "$WEBROOT/index.html"; then
-    report PASS "index.html contains new SNI"
+MOCK_TOKEN="abcdef1234567890abcdef1234567890"
+if [[ -f "$WEBROOT/$MOCK_TOKEN/index.html" ]]; then
+  if grep -q "$NEW_SNI" "$WEBROOT/$MOCK_TOKEN/index.html"; then
+    report PASS "index.html contains new SNI (at token subdir)"
   else
     report FAIL "index.html does not contain new SNI"
   fi
@@ -206,6 +208,7 @@ IKE_USER=vpnuser
 IKE_PASSWORD=mockikepass
 PAGE_USER=admin
 PAGE_PASSWORD=testpass1234
+PAGE_TOKEN=abcdef1234567890abcdef1234567890
 CREDENTIALS_DOMAIN=vpn.example.com
 CREDENTIALS_WEBROOT=/var/www/vpn
 EOF
