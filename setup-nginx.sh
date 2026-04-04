@@ -139,10 +139,48 @@ if [[ -n "$ROTATION_REASON" ]]; then
   echo "$ROTATION_REASON"
 fi
 
+# Install health-check timer (generates /check status page every 60 s)
+CHECK_SERVICE_PATH="/etc/systemd/system/vpn-health-check.service"
+CHECK_TIMER_PATH="/etc/systemd/system/vpn-health-check.timer"
+
+cat > "$CHECK_SERVICE_PATH" <<EOF
+[Unit]
+Description=hogen-vpn health-check status page
+After=docker.service hogen-vpn.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=${SCRIPT_DIR}
+ExecStart=${SCRIPT_DIR}/check.sh
+EOF
+
+cat > "$CHECK_TIMER_PATH" <<EOF
+[Unit]
+Description=Run hogen-vpn health-check every 60 seconds
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=60s
+RandomizedDelaySec=5s
+Persistent=true
+Unit=vpn-health-check.service
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now vpn-health-check.timer
+# Run once immediately so /check is populated before first 60 s tick
+"${SCRIPT_DIR}/check.sh" || true
+echo "Health-check monitoring enabled (vpn-health-check.timer)."
+
 echo ""
 echo "Done."
 echo "Credentials page: https://${DOMAIN}/${PAGE_TOKEN}/"
-echo "Share this URL — it is the only credential needed."
+echo "Status page:       https://${DOMAIN}/check"
+echo "Share the credentials URL — it is the only credential needed."
 echo ""
 echo "Container status:"
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" ps
