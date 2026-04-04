@@ -56,6 +56,9 @@ SS_METHOD=2022-blake3-aes-256-gcm
 SS_PORT=8388
 SS_PASSWORD="${MOCK_SS_PASSWORD}"
 SS_URI="ss://$(printf '%s:%s' '2022-blake3-aes-256-gcm' "${MOCK_SS_PASSWORD}" | openssl base64 -A | tr '+/' '-_' | tr -d '=')@1.2.3.4:8388#SS-VPN"
+IKE_PSK="bW9ja2lrZXBzazEyMzQ1Njc4OTAxMjM0"
+IKE_USER=vpnuser
+IKE_PASSWORD=mockikepass
 PAGE_USER=admin
 PAGE_PASSWORD=testpass1234
 EOF
@@ -173,6 +176,9 @@ SS_METHOD=2022-blake3-aes-256-gcm
 SS_PORT=8388
 SS_PASSWORD="dGVzdHBhc3N3b3JkMTIzNDU2Nzg5MDEyMzQ1Njc4OTA="
 SS_URI="ss://dGVzdA==@1.2.3.4:8388#SS-VPN"
+IKE_PSK="bW9ja2lrZXBzazEyMzQ1Njc4OTAxMjM0"
+IKE_USER=vpnuser
+IKE_PASSWORD=mockikepass
 PAGE_USER=admin
 PAGE_PASSWORD=testpass1234
 EOF

@@ -13,7 +13,38 @@ services:
       retries: 3
       start_period: 10s
 
-  xray:
+  ipsec:
+    image: hwdsl2/ipsec-vpn-server
+    restart: unless-stopped
+    environment:
+      VPN_IPSEC_PSK: "${IKE_PSK}"
+      VPN_USER: "${IKE_USER}"
+      VPN_PASSWORD: "${IKE_PASSWORD}"
+      VPN_IKEV2_ONLY: "yes"
+      VPN_DNS_NAME: "${SERVER_IP}"
+      VPN_DNS_SRV1: "1.1.1.1"
+      VPN_DNS_SRV2: "8.8.8.8"
+    ports:
+      - "500:500/udp"
+      - "4500:4500/udp"
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.accept_redirects=0
+      - net.ipv4.conf.all.send_redirects=0
+      - net.ipv4.conf.default.rp_filter=0
+      - net.ipv4.conf.default.accept_source_route=0
+      - net.ipv4.conf.default.send_redirects=0
+    volumes:
+      - ./ipsec/data:/etc/ipsec.d
+      - /lib/modules:/lib/modules:ro
+    healthcheck:
+      test: ["CMD-SHELL", "ipsec status >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     image: ghcr.io/xtls/xray-core:v26.3.27
     restart: unless-stopped
     ports:

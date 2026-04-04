@@ -2,5 +2,6 @@
 .deploy.env
 mtg/config.toml
 xray/config.json
+ipsec/data/
 web/index.html
 web/.htpasswd

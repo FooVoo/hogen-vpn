@@ -22,6 +22,9 @@ set -a; source "$ENV_FILE"; set +a
 [[ -n "${SS_PORT:-}" ]]          || { echo "ERROR: SS_PORT is missing"; exit 1; }
 [[ -n "${SS_PASSWORD:-}" ]]      || { echo "ERROR: SS_PASSWORD is missing"; exit 1; }
 [[ -n "${SS_URI:-}" ]]           || { echo "ERROR: SS_URI is missing"; exit 1; }
+[[ -n "${IKE_PSK:-}" ]]          || { echo "ERROR: IKE_PSK is missing"; exit 1; }
+[[ -n "${IKE_USER:-}" ]]         || { echo "ERROR: IKE_USER is missing"; exit 1; }
+[[ -n "${IKE_PASSWORD:-}" ]]     || { echo "ERROR: IKE_PASSWORD is missing"; exit 1; }
 [[ -n "${PAGE_USER:-}" ]]        || { echo "ERROR: PAGE_USER is missing"; exit 1; }
 [[ -n "${PAGE_PASSWORD:-}" ]]    || { echo "ERROR: PAGE_PASSWORD is missing"; exit 1; }
 XRAY_ROTATE_HOURS="${XRAY_ROTATE_HOURS:-2}"
@@ -113,6 +116,10 @@ SS_METHOD=${SS_METHOD}
 SS_PORT=${SS_PORT}
 SS_PASSWORD="${SS_PASSWORD}"
 SS_URI="${SS_URI}"
+
+IKE_PSK="${IKE_PSK}"
+IKE_USER=${IKE_USER}
+IKE_PASSWORD=${IKE_PASSWORD}
 
 PAGE_USER=${PAGE_USER}
 PAGE_PASSWORD=${PAGE_PASSWORD}

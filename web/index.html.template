@@ -410,6 +410,74 @@
       </div>
     </div>
 
+    <!-- IKEv2 card -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">IKEv2 / IPSec</span>
+        <span class="card-subtitle">встроен в iOS, macOS, Windows, Android</span>
+      </div>
+
+      <div class="qr-hint" style="margin-bottom:20px;">
+        <strong>Клиентские приложения:</strong>
+        <div class="app-row">
+          <span class="app-name">iOS / macOS</span>
+          <span style="color:#94a3b8">Встроенный VPN-клиент (Настройки → VPN)</span>
+        </div>
+        <div class="app-row">
+          <span class="app-name">Android</span>
+          <a href="https://play.google.com/store/apps/details?id=org.strongswan.android" target="_blank">strongSwan</a>
+        </div>
+        <div class="app-row">
+          <span class="app-name">Windows</span>
+          <span style="color:#94a3b8">Встроенный VPN-клиент (Настройки → Сеть → VPN)</span>
+        </div>
+      </div>
+
+      <div class="section-label">Параметры подключения</div>
+      <div class="fields" style="margin-bottom:20px;">
+        <div class="field">
+          <label>Сервер</label>
+          <code>${SERVER_IP}</code>
+          <button class="copy-btn" onclick="copy(this, '${SERVER_IP}')">Копировать</button>
+        </div>
+        <div class="field">
+          <label>Тип</label>
+          <code>IKEv2</code>
+          <button class="copy-btn" onclick="copy(this, 'IKEv2')">Копировать</button>
+        </div>
+        <div class="field">
+          <label>Аутентификация</label>
+          <code>EAP (логин + пароль)</code>
+        </div>
+        <div class="field">
+          <label>Логин</label>
+          <code>${IKE_USER}</code>
+          <button class="copy-btn" onclick="copy(this, '${IKE_USER}')">Копировать</button>
+        </div>
+        <div class="field">
+          <label>Пароль</label>
+          <code>${IKE_PASSWORD}</code>
+          <button class="copy-btn" onclick="copy(this, '${IKE_PASSWORD}')">Копировать</button>
+        </div>
+        <div class="field">
+          <label>Pre-shared key</label>
+          <code>${IKE_PSK}</code>
+          <button class="copy-btn" onclick="copy(this, '${IKE_PSK}')">Копировать</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-label">Конфигурационный профиль</div>
+      <div class="qr-hint">
+        <strong>iOS / macOS .mobileconfig, Android .sswan:</strong>
+        После первого запуска сервера выполни на нём команду для генерации профиля:
+        <div style="margin-top:8px;">
+          <code style="font-size:12px;color:#a5f3fc;word-break:break-all;">docker exec ipsec ikev2.sh --export-client client</code>
+        </div>
+        Файл появится в <code style="color:#a5f3fc;">./ipsec/data/</code> и включает CA-сертификат.
+      </div>
+    </div>
+
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"

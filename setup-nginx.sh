@@ -27,6 +27,8 @@ ufw allow 2083/tcp comment "MTProxy"
 ufw allow 8443/tcp comment "VLESS"
 ufw allow 8388/tcp comment "Shadowsocks"
 ufw allow 8388/udp comment "Shadowsocks"
+ufw allow 500/udp  comment "IKEv2"
+ufw allow 4500/udp comment "IKEv2 NAT-T"
 
 # Generate HTML credentials page
 "$SCRIPT_DIR/render-credentials-page.sh" "$WEBROOT"

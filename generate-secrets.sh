@@ -121,6 +121,11 @@ SS_PASSWORD=$(openssl rand -base64 32 | tr -d '\n')
 SS_USERINFO=$(printf '%s:%s' "$SS_METHOD" "$SS_PASSWORD" | openssl base64 -A | tr '+/' '-_' | tr -d '=')
 SS_URI="ss://${SS_USERINFO}@${SERVER_IP}:${SS_PORT}#SS-VPN"
 
+echo "Generating IKEv2 credentials..."
+IKE_PSK=$(openssl rand -base64 24 | tr -d '\n')
+IKE_USER="vpnuser"
+IKE_PASSWORD=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
+
 # Composite connection strings
 MTG_LINK="https://t.me/proxy?server=${SERVER_IP}&port=${MTG_PORT}&secret=${MTG_SECRET}"
 VLESS_URI="vless://${XRAY_UUID}@${SERVER_IP}:8443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${XRAY_SNI}&fp=chrome&pbk=${XRAY_PUBLIC_KEY}&sid=${XRAY_SHORT_ID}&type=tcp#VPN"
@@ -148,6 +153,10 @@ SS_PORT=${SS_PORT}
 SS_PASSWORD="${SS_PASSWORD}"
 SS_URI="${SS_URI}"
 
+IKE_PSK="${IKE_PSK}"
+IKE_USER=${IKE_USER}
+IKE_PASSWORD=${IKE_PASSWORD}
+
 PAGE_USER=${PAGE_USER}
 PAGE_PASSWORD=${PAGE_PASSWORD}
 
@@ -167,6 +176,7 @@ echo "  xray/config.json  — VLESS + Shadowsocks config"
 echo ""
 echo "REALITY cover domain:  ${XRAY_SNI}"
 echo "Shadowsocks method:    ${SS_METHOD}"
+echo "IKEv2 user:            ${IKE_USER}"
 echo ""
 echo "Credentials page login:  ${PAGE_USER} / ${PAGE_PASSWORD}"
 echo ""
