@@ -42,7 +42,7 @@ cp "$SCRIPT_DIR/web/nginx-ratelimit.conf" /etc/nginx/conf.d/vpn-ratelimit.conf
 
 # Install nginx vhost (render template with env vars)
 export CREDENTIALS_DOMAIN WEBROOT
-envsubst '${CREDENTIALS_DOMAIN}${WEBROOT}' \
+envsubst '${CREDENTIALS_DOMAIN}${WEBROOT}${PAGE_TOKEN}' \
   < "$SCRIPT_DIR/web/nginx-vhost.conf.template" \
   > "$VHOST_PATH"
 ln -sf "$VHOST_PATH" /etc/nginx/sites-enabled/vpn

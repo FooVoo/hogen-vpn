@@ -26,7 +26,7 @@ envsubst '${SERVER_IP}${MTG_PORT}${MTG_SECRET}${MTG_LINK}${XRAY_UUID}${XRAY_PUBL
   < /web/index.html.template \
   > "${TOKEN_DIR}/index.html"
 
-# Install nginx config
-cp /web/nginx.conf /etc/nginx/conf.d/default.conf
+# Install nginx config — substitute ${PAGE_TOKEN} into the location block
+envsubst '${PAGE_TOKEN}' < /web/nginx.conf > /etc/nginx/conf.d/default.conf
 
 exec nginx -g 'daemon off;'
