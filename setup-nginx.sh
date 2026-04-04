@@ -41,6 +41,10 @@ printf '%s:%s\n' "$PAGE_USER" "$(openssl passwd -apr1 "$PAGE_PASSWORD")" \
 chown root:www-data /etc/nginx/htpasswd-vpn
 chmod 640 /etc/nginx/htpasswd-vpn
 
+# Install nginx rate limiting zone first — vhost references zone=vpn_auth
+# so this must be in place before the first nginx -t
+cp "$SCRIPT_DIR/web/nginx-ratelimit.conf" /etc/nginx/conf.d/vpn-ratelimit.conf
+
 # Install nginx vhost (render template with env vars)
 export CREDENTIALS_DOMAIN WEBROOT
 envsubst '${CREDENTIALS_DOMAIN}${WEBROOT}' \
@@ -53,10 +57,6 @@ systemctl reload nginx
 # Get SSL certificate (certbot will update the vhost automatically)
 certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos \
   --register-unsafely-without-email --redirect
-
-# Install nginx rate limiting zone (must be in http{} context, loaded before vhost)
-cp "$SCRIPT_DIR/web/nginx-ratelimit.conf" /etc/nginx/conf.d/vpn-ratelimit.conf
-nginx -t && systemctl reload nginx
 
 # Configure and enable fail2ban
 mkdir -p /etc/fail2ban/jail.d
