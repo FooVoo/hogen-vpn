@@ -53,8 +53,10 @@ else
     || { echo "ERROR: cannot generate UUID — install python3 or uuidgen"; exit 1; })
 fi
 XRAY_KEYPAIR=$(docker run --rm ghcr.io/xtls/xray-core:26.3.27 x25519)
-XRAY_PRIVATE_KEY=$(echo "$XRAY_KEYPAIR" | awk -F': *' '{key=$1; gsub(/ /, "", key); if (tolower(key)=="privatekey") print $2}')
-XRAY_PUBLIC_KEY=$(echo "$XRAY_KEYPAIR"  | awk -F': *' '{key=$1; gsub(/ /, "", key); if (tolower(key)=="publickey") print $2}')
+# v26.x output: "PrivateKey: xxx" / "Password (PublicKey): xxx"
+# v1.x output:  "Private key: xxx" / "Public key: xxx"
+XRAY_PRIVATE_KEY=$(echo "$XRAY_KEYPAIR" | awk -F': *' '/^PrivateKey:|^Private key:/{print $2; exit}')
+XRAY_PUBLIC_KEY=$(echo "$XRAY_KEYPAIR"  | awk -F': *' '/Password \(PublicKey\):|^Public key:/{print $2; exit}')
 XRAY_SHORT_ID=$(openssl rand -hex 8)
 REALITY_COVER_DOMAINS=(
   # International — accessible from Russia
