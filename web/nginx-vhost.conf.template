@@ -9,6 +9,8 @@ server {
 
         limit_req zone=vpn_auth burst=5 nodelay;
 
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         add_header X-Frame-Options "DENY" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "no-referrer" always;
