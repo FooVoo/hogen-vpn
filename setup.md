@@ -1,143 +1,242 @@
-# Telegram MTProxy — Server Setup (vdsina.ru)
+# Server Setup Guide
+
+Complete walkthrough for deploying the full VPN stack on a fresh Ubuntu/Debian VPS.
 
 ## Requirements
 
-- VPS on [vdsina.com](https://vdsina.com) — any Linux plan works (1 CPU / 512MB RAM is enough)
-- OS: Ubuntu 22.04 LTS (recommended)
-- Open ports: **443** (TCP inbound)
-- Docker installed
+- Ubuntu 22.04 LTS VPS (1 vCPU, 1 GB RAM minimum) outside the target region
+- A domain name with an A record pointing to the server IP
+- Root or sudo access
+- Ports 80, 443, 2083, 8388, 8443 (TCP) and 500, 4500 (UDP) not blocked at the cloud/hosting firewall level
 
 ---
 
-## 1. Order a VPS on vdsina.ru
+## 1. Order a VPS
 
-1. Register at vdsina.ru
-2. Create a server — choose **Ubuntu 22.04**
-3. Pick any location outside your target region (Netherlands, Germany, etc.)
-4. Note the server's **IP address** and **root password** from the control panel
+Pick any provider with servers outside your target region: Hetzner, DigitalOcean, Vultr, vdsina, etc.
+
+- OS: **Ubuntu 22.04 LTS**
+- Location: outside your target region (Netherlands, Germany, Finland, etc.)
+- Note the server **IP address** and **root password/SSH key**
+
+After ordering, also open the firewall in the hosting control panel (if present — many providers have a separate network-level firewall in addition to `ufw`):
+
+| Port(s) | Protocol |
+|---|---|
+| 80, 443 | TCP |
+| 2083 | TCP |
+| 8443 | TCP |
+| 8388 | TCP + UDP |
+| 500 | UDP |
+| 4500 | UDP |
 
 ---
 
-## 2. Connect to the Server
+## 2. Install Docker
 
 ```bash
 ssh root@<SERVER_IP>
-```
 
----
-
-## 3. Install Docker
-
-```bash
-apt update && apt upgrade -y
-apt install -y ca-certificates curl gnupg
-
+apt-get update && apt-get install -y ca-certificates curl
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
-  | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-chmod a+r /etc/apt/keyrings/docker.gpg
+  -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
 
 echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
   https://download.docker.com/linux/ubuntu \
   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
   | tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-apt update
-apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 ```
 
 Verify:
 
 ```bash
 docker --version
+docker compose version
 ```
 
 ---
 
-## 4. Open Port 443
+## 3. Install nginx and Certbot
+
+The credentials page runs on the host nginx. If nginx is not already installed:
 
 ```bash
-ufw allow 443/tcp
-ufw allow OpenSSH
-ufw enable
+apt-get install -y nginx certbot python3-certbot-nginx
+```
+
+Make sure port 80 and 443 are reachable — Certbot needs port 80 for the HTTP-01 challenge.
+
+---
+
+## 4. Copy the project to the server
+
+On your **local machine**:
+
+```bash
+cp .deploy.env.example .deploy.env
+# Edit .deploy.env: set DEPLOY_HOST=root@<SERVER_IP>
+source .deploy.env && ./deploy.sh
+```
+
+Or manually:
+
+```bash
+rsync -az --exclude='.env' --exclude='mtg/' --exclude='xray/' --exclude='ipsec/' \
+  ./ root@<SERVER_IP>:/opt/vpn/
 ```
 
 ---
 
-## 5. Generate MTProxy Config
+## 5. Generate all secrets
 
-`mtg` will generate a secret that makes your traffic look like HTTPS to a real website (domain fronting). Pick any popular site — `google.com`, `cloudflare.com`, etc.
-
-```bash
-mkdir -p /opt/mtg && cd /opt/mtg
-
-docker run --rm nineseconds/mtg:2 generate-secret google.com > config.toml
-
-cat config.toml
-```
-
-The file will look like:
-
-```toml
-secret = "ee473ce5d4958eb5f968c87680a23854..."
-bind-to = "0.0.0.0:3128"
-```
-
-> The secret already starts with `ee` which activates domain fronting mode. No need to add `dd` manually.
-
----
-
-## 6. Run the Proxy
+On the **server**:
 
 ```bash
-docker run -d \
-  --name mtg \
-  --restart=unless-stopped \
-  -v /opt/mtg/config.toml:/config.toml \
-  -p 443:3128 \
-  nineseconds/mtg:2
+cd /opt/vpn
+./generate-secrets.sh <SERVER_IP> [REALITY_COVER_DOMAIN] [CREDENTIALS_DOMAIN]
 ```
 
-Check it started:
+Examples:
 
 ```bash
-docker ps
-docker logs mtg
+# Minimal — auto-selects cover domain, credentials page domain set separately
+./generate-secrets.sh 1.2.3.4
+
+# Pin a specific cover domain
+./generate-secrets.sh 1.2.3.4 www.microsoft.com
+
+# Full — pin cover domain and set credentials page domain
+./generate-secrets.sh 1.2.3.4 www.microsoft.com vpn.example.com
+```
+
+The script creates `.env`, `mtg/config.toml`, and `xray/config.json`.
+**Write down the page login credentials** printed at the end — they are shown only once (though they are stored in `.env`).
+
+If `CREDENTIALS_DOMAIN` was not passed as arg 3, add it to `.env` manually:
+
+```bash
+echo "CREDENTIALS_DOMAIN=vpn.example.com" >> /opt/vpn/.env
 ```
 
 ---
 
-## 7. Get the Connection Link
+## 6. Set up nginx, SSL, firewall, and rotation timer
 
 ```bash
-docker exec mtg /mtg access /config.toml
+cd /opt/vpn
+sudo ./setup-nginx.sh
 ```
 
-Output example:
+This script:
+1. Reads `CREDENTIALS_DOMAIN` from `.env`
+2. Renders `web/nginx-vhost.conf.template` → nginx vhost
+3. Obtains a Let's Encrypt certificate via Certbot
+4. Creates `/etc/nginx/htpasswd-vpn` for Basic Auth
+5. Renders the credentials page to `$CREDENTIALS_WEBROOT/index.html`
+6. Opens all required UFW ports (80, 443, 2083, 8388 tcp/udp, 8443, 500/udp, 4500/udp, SSH)
+7. Installs `xray-rotate.timer` (fires every 2 hours, 10-minute random jitter)
 
-```
-tg://proxy?server=1.2.3.4&port=443&secret=ee473ce5...
-https://t.me/proxy?server=1.2.3.4&port=443&secret=ee473ce5...
-```
+After the script finishes, check nginx:
 
-**Save both links** — these are what users need to connect.
+```bash
+nginx -t && systemctl reload nginx
+```
 
 ---
 
-## 8. Keep Config Updated (cron)
-
-`mtg` fetches Telegram's internal config on startup, but it's good practice to restart weekly so it picks up any changes:
+## 7. Start the containers
 
 ```bash
-crontab -e
+cd /opt/vpn
+docker compose up -d
 ```
 
-Add:
+Check all three containers started:
+
+```bash
+docker compose ps
+```
+
+Expected output:
 
 ```
-0 4 * * 0   docker restart mtg
+NAME    STATUS
+mtg     Up (healthy)
+xray    Up (healthy)
+ipsec   Up (healthy)
 ```
+
+The `ipsec` container takes ~60 seconds to initialize on first run (generates PKI).
+
+---
+
+## 8. Export IKEv2 client profiles (first run only)
+
+After `ipsec` is healthy:
+
+```bash
+docker exec ipsec ikev2.sh --export-client client
+```
+
+Files appear in `./ipsec/data/`:
+- `client.mobileconfig` — iOS and macOS (double-tap to install, includes CA cert)
+- `client.sswan` — Android strongSwan app
+
+Distribute these to users via a secure channel (not email).
+
+---
+
+## 9. Verify each protocol
+
+### MTProxy
+
+```bash
+# Check container is listening
+ss -tlnp | grep 3128
+
+# Confirm health
+docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q mtg)
+```
+
+Test from Telegram: open the `tg://proxy?...` link shown on the credentials page.
+
+### VLESS+Reality
+
+```bash
+ss -tlnp | grep 8443
+docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q xray)
+```
+
+Test from a client: import the VLESS URI or QR from the credentials page.
+
+```bash
+# Verify NTP is synced (Reality requires timestamp accuracy)
+timedatectl status | grep "NTP synchronized"
+```
+
+### Shadowsocks
+
+```bash
+ss -tlnp | grep 8388
+ss -ulnp | grep 8388
+```
+
+Import the `ss://` URI from the credentials page into v2rayNG or Shadowrocket.
+
+### IKEv2
+
+```bash
+docker exec ipsec ipsec status
+```
+
+Connect from iOS: Settings → General → VPN & Device Management → VPN → Add VPN Configuration → IKEv2.
+Use the server, username, password, and PSK shown on the credentials page.
 
 ---
 
@@ -145,29 +244,51 @@ Add:
 
 | Task | Command |
 |---|---|
-| Check status | `docker ps` |
-| View logs | `docker logs mtg` |
-| Restart | `docker restart mtg` |
-| Update image | `docker pull nineseconds/mtg:2 && docker restart mtg` |
-| Get link again | `docker exec mtg /mtg access /config.toml` |
+| View logs | `docker compose logs -f [mtg\|xray\|ipsec]` |
+| Restart a service | `docker compose restart xray` |
+| Restart all | `docker compose restart` |
+| Force rotation now | `sudo systemctl start xray-rotate.service` |
+| Check rotation timer | `systemctl status xray-rotate.timer` |
+| Regenerate credentials | `./generate-secrets.sh <IP> && sudo ./setup-nginx.sh && docker compose restart` |
+| Update Xray config | `./render-xray-config.sh && docker compose restart xray` |
+| Re-render credentials page | `./render-credentials-page.sh` |
 
 ---
 
 ## Troubleshooting
 
-**Port 443 already in use:**
+**`ipsec` container not healthy after 2 minutes:**
 ```bash
-ss -tlnp | grep 443
-# Kill whatever is using it, then re-run docker run
+docker compose logs ipsec
+# First run generates PKI — takes ~60s. If still failing, check /lib/modules is mounted
 ```
 
-**Container exits immediately:**
+**Xray won't start:**
 ```bash
-docker logs mtg
-# Usually a config.toml path issue — confirm file exists at /opt/mtg/config.toml
+docker compose logs xray
+# Usually a JSON syntax error — run ./render-xray-config.sh to regenerate
 ```
 
-**Users can't connect:**
-- Confirm port 443 is open: `ufw status`
-- Check vdsina firewall in the control panel (some plans have a separate network-level firewall)
-- Try the `https://t.me/proxy?...` link instead of `tg://`
+**VLESS clients connect but traffic doesn't flow:**
+```bash
+timedatectl status   # clock must be NTP-synced
+```
+
+**Port unreachable from outside:**
+```bash
+ufw status          # check OS firewall
+# Also check the hosting provider's network-level firewall
+```
+
+**Certbot fails — "port 80 connection refused":**
+```bash
+# nginx must be running and port 80 must reach the server
+systemctl status nginx
+ufw allow 80/tcp
+```
+
+**`setup-nginx.sh` fails: "CREDENTIALS_DOMAIN not set":**
+```bash
+# Add to .env:
+echo "CREDENTIALS_DOMAIN=vpn.example.com" >> .env
+```
