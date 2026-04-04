@@ -64,6 +64,33 @@ cp "$SCRIPT_DIR/fail2ban/jail.d/hogen-vpn.conf" /etc/fail2ban/jail.d/hogen-vpn.c
 systemctl enable --now fail2ban
 fail2ban-client reload || true
 
+# Install Docker Compose auto-start service
+DOCKER_BIN="$(command -v docker)"
+AUTOSTART_SERVICE_PATH="/etc/systemd/system/hogen-vpn.service"
+cat > "$AUTOSTART_SERVICE_PATH" <<EOF
+[Unit]
+Description=hogen-vpn VPN stack (Docker Compose)
+Documentation=file://${SCRIPT_DIR}/README.md
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=${SCRIPT_DIR}
+ExecStart=${DOCKER_BIN} compose up -d --remove-orphans
+ExecStop=${DOCKER_BIN} compose stop
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable hogen-vpn.service
+echo "Docker stack auto-start enabled (hogen-vpn.service)."
+
 ROTATION_SERVICE_PATH="/etc/systemd/system/vpn-reality-cover-rotate.service"
 ROTATION_TIMER_PATH="/etc/systemd/system/vpn-reality-cover-rotate.timer"
 ROTATION_INTERVAL="${XRAY_ROTATE_HOURS:-0}"

@@ -159,6 +159,12 @@ cd /opt/vpn
 docker compose up -d
 ```
 
+`setup-nginx.sh` already registered `hogen-vpn.service` to auto-start the stack on every boot. Verify it is enabled:
+
+```bash
+systemctl is-enabled hogen-vpn.service   # should print "enabled"
+```
+
 Check all three containers started:
 
 ```bash
@@ -249,8 +255,9 @@ Use the server, username, password, and PSK shown on the credentials page.
 | View logs | `docker compose logs -f [mtg\|xray\|ipsec]` |
 | Restart a service | `docker compose restart xray` |
 | Restart all | `docker compose restart` |
-| Force rotation now | `sudo systemctl start xray-rotate.service` |
-| Check rotation timer | `systemctl status xray-rotate.timer` |
+| Check auto-start service | `systemctl status hogen-vpn.service` |
+| Force rotation now | `sudo systemctl start vpn-reality-cover-rotate.service` |
+| Check rotation timer | `systemctl status vpn-reality-cover-rotate.timer` |
 | Regenerate credentials | `./generate-secrets.sh <IP> && sudo ./setup-nginx.sh && docker compose restart` |
 | Update Xray config | `./render-xray-config.sh && docker compose restart xray` |
 | Re-render credentials page | `./render-credentials-page.sh` |

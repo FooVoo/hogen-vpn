@@ -67,7 +67,7 @@ The page login credentials are printed at the end of this step.
 ssh user@yourserver "cd /opt/vpn && sudo ./setup-nginx.sh"
 ```
 
-This configures the nginx vhost (reading `CREDENTIALS_DOMAIN` from `.env`), obtains a Let's Encrypt certificate, opens all required UFW ports, renders the credentials page, and installs the 2-hour rotation timer.
+This configures the nginx vhost (reading `CREDENTIALS_DOMAIN` from `.env`), obtains a Let's Encrypt certificate, opens all required UFW ports, renders the credentials page, installs the 2-hour rotation timer, and registers `hogen-vpn.service` to auto-start the Docker stack on every boot.
 
 ### 5. Start containers
 
@@ -110,12 +110,13 @@ ssh user@yourserver "cd /opt/vpn && ./render-xray-config.sh && docker compose re
 
 ## Cover domain rotation
 
-The VLESS+Reality `sni`/`dest` pair rotates every **2 hours** via a systemd timer (`xray-rotate.timer`). The rotation script:
+The VLESS+Reality `sni`/`dest` pair rotates every **2 hours** via a systemd timer (`vpn-reality-cover-rotate.timer`). Each rotation also regenerates the MTProxy FakeTLS secret with a new cover domain. The rotation script:
 
 1. Shuffles the 35-domain pool (`XRAY_COVER_DOMAINS` in `.env`)
 2. TLS-checks each candidate — skips any domain that doesn't respond on TLS
 3. Picks the first reachable domain different from the current one
 4. Atomically rewrites `.env`, re-renders `xray/config.json` and the credentials page, then restarts Xray
+5. Picks a new MTProxy FakeTLS cover domain from `MTG_COVER_DOMAINS`, regenerates `mtg/config.toml`, and restarts MTProxy
 
 After rotation, **previously imported VLESS profiles stop working** because the SNI changed. Users must reopen the credentials page and re-import the link or QR code. Shadowsocks and IKEv2 are unaffected by rotation.
 
