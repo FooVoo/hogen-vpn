@@ -39,7 +39,47 @@ CANDIDATES=()
 for CANDIDATE in "${ROTATABLE_DOMAINS[@]}"; do
   [[ "$CANDIDATE" != "$CURRENT_DOMAIN" ]] && CANDIDATES+=("$CANDIDATE")
 done
-NEXT_DOMAIN="${CANDIDATES[$RANDOM % ${#CANDIDATES[@]}]}"
+
+# Shuffle candidates so each run tries a different order
+SHUFFLED=()
+while (( ${#CANDIDATES[@]} > 0 )); do
+  IDX=$(( RANDOM % ${#CANDIDATES[@]} ))
+  SHUFFLED+=("${CANDIDATES[$IDX]}")
+  CANDIDATES=("${CANDIDATES[@]:0:$IDX}" "${CANDIDATES[@]:$((IDX+1))}")
+done
+
+# Pick the first candidate that passes a TLS handshake on :443
+# Tries TLS 1.3 first; falls back to any TLS if curl/openssl doesn't support 1.3
+check_domain_tls() {
+  local domain="$1"
+  # Prefer TLS 1.3 check (works on Linux with OpenSSL 1.1.1+)
+  if curl --silent --max-time 5 --head "https://${domain}/" \
+    --tlsv1.3 -o /dev/null 2>/dev/null; then
+    return 0
+  fi
+  # Fallback: any successful TLS handshake (covers older curl/LibreSSL)
+  curl --silent --max-time 5 --head "https://${domain}/" \
+    -o /dev/null 2>/dev/null
+}
+
+NEXT_DOMAIN=""
+FAILED_DOMAINS=()
+for CANDIDATE in "${SHUFFLED[@]}"; do
+  if check_domain_tls "$CANDIDATE"; then
+    NEXT_DOMAIN="$CANDIDATE"
+    break
+  fi
+  FAILED_DOMAINS+=("$CANDIDATE")
+done
+
+if [[ -n "${FAILED_DOMAINS[*]:-}" ]]; then
+  echo "WARNING: TLS check failed for: ${FAILED_DOMAINS[*]}"
+fi
+
+if [[ -z "$NEXT_DOMAIN" ]]; then
+  echo "ERROR: no reachable cover domain found — keeping current domain ${CURRENT_DOMAIN}"
+  exit 1
+fi
 
 XRAY_SNI="$NEXT_DOMAIN"
 XRAY_DEST="${XRAY_SNI}:443"
