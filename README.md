@@ -17,7 +17,7 @@ A password-protected HTTPS credentials page shows QR codes, connection URIs, and
 - **Xray** ([xray-core v26.3.27](https://github.com/XTLS/Xray-core)) serves two inbounds from one container: VLESS+Reality on 8443 (impersonates a real TLS site) and Shadowsocks 2022 on 8388.
 - **IKEv2** ([hwdsl2/ipsec-vpn-server](https://github.com/hwdsl2/docker-ipsec-vpn-server)) runs in Docker with `VPN_IKEV2_ONLY=yes` — accepts EAP (username/password) auth, no client app required on iOS/macOS/Windows.
 - **nginx** (host) serves a password-protected HTTPS page at your domain with all connection details.
-- A **systemd timer** rotates the VLESS+Reality cover domain every 2 hours, TLS-checks the new candidate against a pool of 35 domains (20 international + 15 Russian), and reloads Xray automatically. After each rotation users should re-import the VLESS link.
+- **systemd timers** rotate the VLESS+Reality cover domain and the MTProxy FakeTLS fingerprint every 30 minutes, TLS-check each new candidate against a pool of 35 domains (20 international + 15 Russian), and reload the respective service automatically. After each Xray rotation users should re-import the VLESS link.
 
 ## Requirements
 
@@ -95,11 +95,11 @@ source .deploy.env && ./deploy.sh
 
 `deploy.sh` syncs project files, re-renders the Xray config and credentials page, and restarts containers on the server automatically.
 
-To change REALITY rotation interval or disable it, edit `XRAY_ROTATE_HOURS` in `.env` on the server, then rerun `setup-nginx.sh`:
+To change REALITY rotation interval or disable it, edit `XRAY_ROTATE_MINS` in `.env` on the server, then rerun `setup-nginx.sh`:
 
 ```bash
 # Disable rotation:
-ssh user@yourserver "sed -i 's/^XRAY_ROTATE_HOURS=.*/XRAY_ROTATE_HOURS=0/' /opt/vpn/.env && cd /opt/vpn && sudo ./setup-nginx.sh"
+ssh user@yourserver "sed -i 's/^XRAY_ROTATE_MINS=.*/XRAY_ROTATE_MINS=0/' /opt/vpn/.env && cd /opt/vpn && sudo ./setup-nginx.sh"
 ```
 
 To rebuild container configs without a full deploy:
@@ -110,17 +110,24 @@ ssh user@yourserver "cd /opt/vpn && ./render-xray-config.sh && docker compose re
 
 ## Cover domain rotation
 
-The VLESS+Reality `sni`/`dest` pair rotates every **2 hours** via a systemd timer (`vpn-reality-cover-rotate.timer`). Each rotation also regenerates the MTProxy FakeTLS secret with a new cover domain. The rotation script:
+The VLESS+Reality `sni`/`dest` pair rotates every **30 minutes** via `vpn-reality-cover-rotate.timer`. The MTProxy FakeTLS fingerprint rotates independently every **30 minutes** via `vpn-mtg-rotate.timer`.
 
+**Xray rotation** (`rotate-reality-cover.sh`):
 1. Shuffles the 35-domain pool (`XRAY_COVER_DOMAINS` in `.env`)
 2. TLS-checks each candidate — skips any domain that doesn't respond on TLS
 3. Picks the first reachable domain different from the current one
 4. Atomically rewrites `.env`, re-renders `xray/config.json` and the credentials page, then restarts Xray
-5. Picks a new MTProxy FakeTLS cover domain from `MTG_COVER_DOMAINS`, regenerates `mtg/config.toml`, and restarts MTProxy
 
-After rotation, **previously imported VLESS profiles stop working** because the SNI changed. Users must reopen the credentials page and re-import the link or QR code. Shadowsocks and IKEv2 are unaffected by rotation.
+**MTProxy rotation** (`rotate-mtg-cover.sh`):
+1. Picks a new cover domain from `MTG_COVER_DOMAINS` (different from the current one)
+2. Regenerates `mtg/config.toml` with the new secret
+3. Atomically rewrites `.env` and re-renders the credentials page, then restarts MTProxy
 
-Set `XRAY_ROTATE_HOURS=0` (and rerun `./setup-nginx.sh`) to disable automatic rotation and keep profiles stable.
+After Xray rotation, **previously imported VLESS profiles stop working** because the SNI changed. Users must reopen the credentials page and re-import the link or QR code. Shadowsocks and IKEv2 are unaffected by rotation.
+
+After MTProxy rotation, users must re-add the proxy in Telegram using the updated `tg://` link.
+
+Set `XRAY_ROTATE_MINS=0` or `MTG_ROTATE_MINS=0` (and rerun `./setup-nginx.sh`) to disable the respective rotation.
 
 ## Ports
 
@@ -196,9 +203,11 @@ Generated files (gitignored): `.env`, `mtg/config.toml`, `xray/config.json`, `ip
 |---|---|
 | `SERVER_IP` | VPS public IP |
 | `MTG_SECRET`, `MTG_PORT`, `MTG_LINK` | MTProxy credentials |
+| `MTG_COVER_DOMAINS` | Comma-separated MTProxy rotation pool |
+| `MTG_ROTATE_MINS` | MTProxy rotation interval in minutes (`0` = disabled, default `30`) |
 | `XRAY_UUID`, `XRAY_PRIVATE_KEY`, `XRAY_PUBLIC_KEY`, `XRAY_SHORT_ID`, `XRAY_SNI`, `XRAY_DEST` | VLESS+Reality parameters |
 | `XRAY_COVER_DOMAINS` | Comma-separated rotation pool (35 domains) |
-| `XRAY_ROTATE_HOURS` | Rotation interval in hours (`0` = disabled, default `2`) |
+| `XRAY_ROTATE_MINS` | Rotation interval in minutes (`0` = disabled, default `30`) |
 | `VLESS_URI` | Full VLESS connection URI |
 | `SS_METHOD`, `SS_PORT`, `SS_PASSWORD`, `SS_URI` | Shadowsocks 2022 credentials |
 | `IKE_PSK`, `IKE_USER`, `IKE_PASSWORD` | IKEv2 credentials |

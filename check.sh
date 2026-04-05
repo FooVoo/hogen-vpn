@@ -121,3 +121,21 @@ cat > "${CHECK_DIR}/status.json" <<JSON
 JSON
 
 chmod 644 "${CHECK_DIR}/index.html" "${CHECK_DIR}/status.json"
+
+# ── .check_env ────────────────────────────────────────────────────────────────
+# Written for render-credentials-page.sh to embed status in the credentials page.
+
+cat > "${SCRIPT_DIR}/.check_env" <<ENV
+CHECK_OVERALL=${OVERALL}
+CHECK_TIMESTAMP=${TIMESTAMP}
+CHECK_MTG_TCP=${MTG_TCP}
+CHECK_MTG_CTR=${MTG_CTR}
+CHECK_XRAY_TCP=${XRAY_TCP}
+CHECK_SS_TCP=${SS_TCP}
+CHECK_XRAY_CTR=${XRAY_CTR}
+CHECK_IPSEC_CTR=${IPSEC_CTR}
+ENV
+chmod 600 "${SCRIPT_DIR}/.check_env"
+
+# Re-render the credentials page so the embedded status card stays fresh.
+"${SCRIPT_DIR}/render-credentials-page.sh" "$WEBROOT" || true

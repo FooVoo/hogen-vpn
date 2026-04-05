@@ -110,13 +110,13 @@ echo "Docker stack auto-start enabled (hogen-vpn.service)."
 
 ROTATION_SERVICE_PATH="/etc/systemd/system/vpn-reality-cover-rotate.service"
 ROTATION_TIMER_PATH="/etc/systemd/system/vpn-reality-cover-rotate.timer"
-ROTATION_INTERVAL="${XRAY_ROTATE_HOURS:-0}"
+ROTATION_INTERVAL="${XRAY_ROTATE_MINS:-0}"
 ROTATION_REASON=""
 
 if [[ -z "${XRAY_COVER_DOMAINS:-}" ]]; then
   ROTATION_REASON="XRAY_COVER_DOMAINS is missing in .env. Regenerate secrets or add the cover-domain pool before enabling rotation."
 elif ! [[ "$ROTATION_INTERVAL" =~ ^[0-9]+$ ]]; then
-  ROTATION_REASON="XRAY_ROTATE_HOURS must be an integer, got '${ROTATION_INTERVAL}'."
+  ROTATION_REASON="XRAY_ROTATE_MINS must be an integer, got '${ROTATION_INTERVAL}'."
 elif (( ROTATION_INTERVAL > 0 )); then
   cat > "$ROTATION_SERVICE_PATH" <<EOF
 [Unit]
@@ -133,12 +133,12 @@ EOF
 
   cat > "$ROTATION_TIMER_PATH" <<EOF
 [Unit]
-Description=Rotate Xray REALITY cover domain every ${ROTATION_INTERVAL} hours
+Description=Rotate Xray REALITY cover domain every ${ROTATION_INTERVAL} minutes
 
 [Timer]
 OnBootSec=15m
-OnUnitActiveSec=${ROTATION_INTERVAL}h
-RandomizedDelaySec=10m
+OnUnitActiveSec=${ROTATION_INTERVAL}min
+RandomizedDelaySec=3min
 Persistent=true
 Unit=vpn-reality-cover-rotate.service
 
@@ -148,9 +148,9 @@ EOF
 
   systemctl daemon-reload
   systemctl enable --now vpn-reality-cover-rotate.timer
-  echo "REALITY cover rotation enabled every ${ROTATION_INTERVAL} hours."
+  echo "REALITY cover rotation enabled every ${ROTATION_INTERVAL} minutes."
 else
-  ROTATION_REASON="REALITY cover rotation is disabled (XRAY_ROTATE_HOURS=${ROTATION_INTERVAL})."
+  ROTATION_REASON="REALITY cover rotation is disabled (XRAY_ROTATE_MINS=${ROTATION_INTERVAL})."
 fi
 
 if [[ -n "$ROTATION_REASON" ]]; then
@@ -160,6 +160,61 @@ if [[ -n "$ROTATION_REASON" ]]; then
   rm -f "$ROTATION_SERVICE_PATH" "$ROTATION_TIMER_PATH"
   systemctl daemon-reload
   echo "$ROTATION_REASON"
+fi
+
+# --- MTProxy rotation timer ---
+MTG_SERVICE_PATH="/etc/systemd/system/vpn-mtg-rotate.service"
+MTG_TIMER_PATH="/etc/systemd/system/vpn-mtg-rotate.timer"
+MTG_INTERVAL="${MTG_ROTATE_MINS:-0}"
+MTG_REASON=""
+
+if [[ -z "${MTG_COVER_DOMAINS:-}" ]]; then
+  MTG_REASON="MTG_COVER_DOMAINS is missing in .env. Regenerate secrets before enabling MTProxy rotation."
+elif ! [[ "$MTG_INTERVAL" =~ ^[0-9]+$ ]]; then
+  MTG_REASON="MTG_ROTATE_MINS must be an integer, got '${MTG_INTERVAL}'."
+elif (( MTG_INTERVAL > 0 )); then
+  cat > "$MTG_SERVICE_PATH" <<EOF
+[Unit]
+Description=Rotate MTProxy FakeTLS cover domain
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=${SCRIPT_DIR}
+ExecStart=${SCRIPT_DIR}/rotate-mtg-cover.sh
+TimeoutStartSec=120
+EOF
+
+  cat > "$MTG_TIMER_PATH" <<EOF
+[Unit]
+Description=Rotate MTProxy FakeTLS cover domain every ${MTG_INTERVAL} minutes
+
+[Timer]
+OnBootSec=15m
+OnUnitActiveSec=${MTG_INTERVAL}min
+RandomizedDelaySec=3min
+Persistent=true
+Unit=vpn-mtg-rotate.service
+
+[Install]
+WantedBy=timers.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable --now vpn-mtg-rotate.timer
+  echo "MTProxy cover rotation enabled every ${MTG_INTERVAL} minutes."
+else
+  MTG_REASON="MTProxy cover rotation is disabled (MTG_ROTATE_MINS=${MTG_INTERVAL})."
+fi
+
+if [[ -n "$MTG_REASON" ]]; then
+  if systemctl list-unit-files vpn-mtg-rotate.timer --no-legend 2>/dev/null | grep -q '^vpn-mtg-rotate.timer'; then
+    systemctl disable --now vpn-mtg-rotate.timer
+  fi
+  rm -f "$MTG_SERVICE_PATH" "$MTG_TIMER_PATH"
+  systemctl daemon-reload
+  echo "$MTG_REASON"
 fi
 
 # Install health-check timer (generates /check status page every 60 s)

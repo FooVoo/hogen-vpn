@@ -50,7 +50,7 @@ openssl rand -hex 8
 
 The Reality cover domain must support **TLS 1.3** and **HTTP/2**. It must not redirect.
 
-In this project, `generate-secrets.sh` selects from a 35-domain pool (see `XRAY_COVER_DOMAINS` in `.env`). The active domain rotates every 2 hours via a systemd timer.
+In this project, `generate-secrets.sh` selects from a 35-domain pool (see `XRAY_COVER_DOMAINS` in `.env`). The active domain rotates every 30 minutes via a systemd timer.
 
 Verify a candidate domain from the VPS:
 

@@ -142,7 +142,8 @@ This script:
 6. Allows SSH in UFW first (prevents lockout), then opens all required ports, then calls `ufw --force enable`
 7. Installs `/etc/nginx/conf.d/vpn-ratelimit.conf` (5 req/min limit per IP on credentials page)
 8. Installs and enables **fail2ban** with SSH + nginx-http-auth jails
-9. Installs `xray-rotate.timer` (fires every 2 hours, 10-minute random jitter)
+9. Installs `vpn-reality-cover-rotate.timer` (fires every 30 minutes, 3-minute random jitter)
+10. Installs `vpn-mtg-rotate.timer` (fires every 30 minutes, 3-minute random jitter)
 
 After the script finishes, check nginx:
 
@@ -279,8 +280,11 @@ Use the server, username, password, and PSK shown on the credentials page.
 | Restart a service | `docker compose restart xray` |
 | Restart all | `docker compose restart` |
 | Check auto-start service | `systemctl status hogen-vpn.service` |
-| Force rotation now | `sudo systemctl start vpn-reality-cover-rotate.service` |
-| Check rotation timer | `systemctl status vpn-reality-cover-rotate.timer` |
+| Force Xray rotation now | `sudo systemctl start vpn-reality-cover-rotate.service` |
+| Force MTProxy rotation now | `sudo systemctl start vpn-mtg-rotate.service` |
+| Check Xray rotation timer | `systemctl status vpn-reality-cover-rotate.timer` |
+| Check MTProxy rotation timer | `systemctl status vpn-mtg-rotate.timer` |
+| Backfill missing .env vars | `sudo ./migrate-env.sh && sudo ./setup-nginx.sh` |
 | Regenerate credentials | `./generate-secrets.sh <IP> && sudo ./setup-nginx.sh && docker compose restart` |
 | Update Xray config | `./render-xray-config.sh && docker compose restart xray` |
 | Re-render credentials page | `./render-credentials-page.sh` |

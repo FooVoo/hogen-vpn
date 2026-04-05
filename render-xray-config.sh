@@ -90,4 +90,4 @@ cat > "${SCRIPT_DIR}/xray/config.json" <<EOF
     ]
 }
 EOF
-chmod 600 "${SCRIPT_DIR}/xray/config.json"
+chmod 644 "${SCRIPT_DIR}/xray/config.json"

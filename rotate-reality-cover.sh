@@ -26,7 +26,8 @@ set -a; source "$ENV_FILE"; set +a
 [[ -n "${IKE_USER:-}" ]]         || { echo "ERROR: IKE_USER is missing"; exit 1; }
 [[ -n "${IKE_PASSWORD:-}" ]]     || { echo "ERROR: IKE_PASSWORD is missing"; exit 1; }
 [[ -n "${PAGE_TOKEN:-}" ]]       || { echo "ERROR: PAGE_TOKEN is missing"; exit 1; }
-XRAY_ROTATE_HOURS="${XRAY_ROTATE_HOURS:-2}"
+XRAY_ROTATE_MINS="${XRAY_ROTATE_MINS:-30}"
+MTG_ROTATE_MINS="${MTG_ROTATE_MINS:-30}"
 
 # MTProxy fingerprint vars — fall back to the REALITY pool so old deployments
 # that pre-date MTG_COVER_DOMAINS still rotate correctly after an upgrade.
@@ -117,8 +118,8 @@ else
   NEXT_MTG_DOMAIN="$CURRENT_MTG_DOMAIN"
 fi
 MTG_SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret "$NEXT_MTG_DOMAIN")
-[[ "$MTG_SECRET" =~ ^ee[0-9a-f]{32,}$ ]] || {
-  echo "ERROR: MTProxy secret has unexpected format (expected ee<hex>): '${MTG_SECRET:0:30}'"
+[[ "$MTG_SECRET" =~ ^ee[0-9a-f]{32,}$ ]] || [[ "$MTG_SECRET" =~ ^[A-Za-z0-9_-]{32,}=*$ ]] || {
+  echo "ERROR: MTProxy secret has unexpected format: '${MTG_SECRET:0:40}'"
   exit 1
 }
 MTG_COVER_DOMAIN="$NEXT_MTG_DOMAIN"
@@ -141,6 +142,7 @@ MTG_PORT=${MTG_PORT}
 MTG_COVER_DOMAIN=${MTG_COVER_DOMAIN}
 MTG_COVER_DOMAINS=${MTG_COVER_DOMAINS}
 MTG_LINK="${MTG_LINK}"
+MTG_ROTATE_MINS=${MTG_ROTATE_MINS}
 
 XRAY_UUID=${XRAY_UUID}
 XRAY_PRIVATE_KEY=${XRAY_PRIVATE_KEY}
@@ -149,7 +151,7 @@ XRAY_SHORT_ID=${XRAY_SHORT_ID}
 XRAY_SNI=${XRAY_SNI}
 XRAY_DEST=${XRAY_DEST}
 XRAY_COVER_DOMAINS=${XRAY_COVER_DOMAINS}
-XRAY_ROTATE_HOURS=${XRAY_ROTATE_HOURS}
+XRAY_ROTATE_MINS=${XRAY_ROTATE_MINS}
 VLESS_URI="${VLESS_URI}"
 
 SS_METHOD=${SS_METHOD}
@@ -173,6 +175,9 @@ mv "$TMP_ENV" "$ENV_FILE"
 "$SCRIPT_DIR/render-credentials-page.sh" "$WEBROOT"
 
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --force-recreate xray mtg >/dev/null
+
+date '+%Y-%m-%d %H:%M %Z' > "${SCRIPT_DIR}/.last_xray_rotation"
+date '+%Y-%m-%d %H:%M %Z' > "${SCRIPT_DIR}/.last_mtg_rotation"
 
 echo "Rotated REALITY cover domain: ${CURRENT_DOMAIN} -> ${XRAY_SNI}"
 echo "Rotated MTProxy fingerprint:  ${CURRENT_MTG_DOMAIN} -> ${MTG_COVER_DOMAIN}"

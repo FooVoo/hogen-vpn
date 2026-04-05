@@ -194,6 +194,38 @@
       margin-bottom: 10px;
     }
 
+    .rotation-meta {
+      font-size: 12px;
+      color: #334155;
+      margin-top: 14px;
+    }
+    .rotation-meta span { color: #475569; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      margin-bottom: 18px;
+    }
+    .s-ok       { background: #14532d; color: #4ade80; }
+    .s-degraded { background: #7f1d1d; color: #f87171; }
+    .s-dim      { background: #1e2535; color: #475569; }
+    .status-list { display: grid; gap: 0; }
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-top: 1px solid #1e2535;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .s-up   { color: #4ade80; font-weight: 600; }
+    .s-down { color: #f87171; font-weight: 600; }
+
     @media (max-width: 500px) {
       .field { grid-template-columns: 100px 1fr; }
       .copy-btn { display: none; }
@@ -239,6 +271,7 @@
           <code id="mtg-link">${MTG_LINK}</code>
         </div>
       </div>
+      <div class="rotation-meta">Последнее обновление: <span>${MTG_LAST_ROTATED}</span></div>
     </div>
 
     <!-- VLESS card -->
@@ -289,6 +322,7 @@
         <strong>Важно:</strong>
         ${XRAY_ROTATION_MESSAGE}
       </div>
+      <div class="rotation-meta">Последнее обновление: <span>${XRAY_LAST_ROTATED}</span></div>
 
       <div class="divider"></div>
       <div class="section-label">Параметры вручную</div>
@@ -476,6 +510,24 @@
         </div>
         Файл появится в <code style="color:#a5f3fc;">./ipsec/data/</code> и включает CA-сертификат.
       </div>
+    </div>
+
+    <!-- Status card -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Статус сервисов</span>
+        <span class="card-subtitle">обновляется каждые 60 с</span>
+      </div>
+      <div class="status-badge ${CHECK_OVERALL_CLASS}">${CHECK_OVERALL_LABEL}</div>
+      <div class="status-list">
+        <div class="status-row"><span>MTProxy  tcp:2083</span>${CHECK_MTG_TCP_HTML}</div>
+        <div class="status-row"><span>MTProxy  container</span>${CHECK_MTG_CTR_HTML}</div>
+        <div class="status-row"><span>VLESS    tcp:8443</span>${CHECK_XRAY_TCP_HTML}</div>
+        <div class="status-row"><span>Xray     container</span>${CHECK_XRAY_CTR_HTML}</div>
+        <div class="status-row"><span>Shadowsocks  tcp:8388</span>${CHECK_SS_TCP_HTML}</div>
+        <div class="status-row"><span>IKEv2    container</span>${CHECK_IPSEC_CTR_HTML}</div>
+      </div>
+      <div class="rotation-meta">Проверено: <span>${CHECK_TIMESTAMP}</span></div>
     </div>
 
   </div>

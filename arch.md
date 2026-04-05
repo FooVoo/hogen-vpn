@@ -46,9 +46,12 @@ flowchart TD
     D --> G[setup-nginx.sh]
     D --> H[docker compose up -d]
     G --> I[Host nginx + Certbot + htpasswd + rendered index.html]
-    G --> T[systemd xray-rotate.timer every 2h]
+    G --> T[systemd vpn-reality-cover-rotate.timer every 30m]
+    G --> U[systemd vpn-mtg-rotate.timer every 30m]
     T --> R[rotate-reality-cover.sh]
+    U --> S[rotate-mtg-cover.sh]
     R --> D
+    S --> D
     E --> J[MTProxy container — port 2083]
     F --> K[Xray container — VLESS port 8443, SS port 8388]
     D --> L[IKEv2/IPSec container — ports 500/4500 UDP]
@@ -69,7 +72,7 @@ The standard deployment relies on the VPS host for the following:
 - **nginx** as the HTTPS web server for the credentials page
 - **Certbot** to provision and inject TLS configuration into the nginx vhost
 - **ufw** to open all required ports (80, 443, 2083, 8388, 8443, 500/udp, 4500/udp)
-- **systemd timer** (`xray-rotate.timer`) to run `rotate-reality-cover.sh` every 2 hours
+- **systemd timers** (`vpn-reality-cover-rotate.timer`, `vpn-mtg-rotate.timer`) to run the respective rotation scripts every 30 minutes
 - **filesystem storage** for generated secrets, rendered HTML, and the htpasswd file
 
 ### 2. Containerized services
@@ -119,7 +122,7 @@ The `xray` container serves **two inbounds** from a single config:
 
 1. VPN client connects to **8443/tcp**
 2. Xray accepts VLESS with `xtls-rprx-vision` flow
-3. Reality presents a real TLS handshake to the active cover domain (rotates every 2h)
+3. Reality presents a real TLS handshake to the active cover domain (rotates every 30m)
 4. Client requires: UUID, public key, short ID, SNI, `fp=chrome`
 5. The VLESS URI is rendered into the credentials page (QR + copyable link)
 
@@ -172,7 +175,7 @@ These generated files are intentionally gitignored.
 | Server | `SERVER_IP` |
 | MTProxy | `MTG_SECRET`, `MTG_PORT`, `MTG_LINK` |
 | VLESS+Reality | `XRAY_UUID`, `XRAY_PRIVATE_KEY`, `XRAY_PUBLIC_KEY`, `XRAY_SHORT_ID`, `XRAY_SNI`, `XRAY_DEST`, `VLESS_URI` |
-| Rotation | `XRAY_COVER_DOMAINS` (35-domain pool), `XRAY_ROTATE_HOURS` (default: 2) |
+| Rotation | `XRAY_COVER_DOMAINS` (35-domain pool), `XRAY_ROTATE_MINS` (default: 30) |
 | Shadowsocks | `SS_METHOD`, `SS_PORT`, `SS_PASSWORD`, `SS_URI` |
 | IKEv2 | `IKE_PSK`, `IKE_USER`, `IKE_PASSWORD` |
 | Credentials page | `PAGE_USER`, `PAGE_PASSWORD`, `CREDENTIALS_DOMAIN`, `CREDENTIALS_WEBROOT` |
@@ -183,7 +186,7 @@ These generated files are intentionally gitignored.
 
 ## VLESS cover domain rotation
 
-The rotation mechanism runs every 2 hours via `xray-rotate.timer`:
+The rotation mechanism runs every 30 minutes via `vpn-reality-cover-rotate.timer`:
 
 1. Loads `XRAY_COVER_DOMAINS` (comma-separated pool of 35 domains)
 2. Shuffles candidates with `sort -R`

@@ -1,5 +1,8 @@
 .env
 .deploy.env
+.last_xray_rotation
+.last_mtg_rotation
+.check_env
 mtg/config.toml
 xray/config.json
 ipsec/data/
