@@ -22,6 +22,12 @@ VHOST_PATH="${NGINX_VHOST_PATH:-/etc/nginx/sites-available/vpn}"
 apt-get update -q
 apt-get install -y --quiet certbot python3-certbot-nginx gettext-base fail2ban
 
+# Persist host IP forwarding — required for IKEv2 traffic routing.
+# Docker enables ip_forward at runtime but doesn't persist it; without this
+# a reboot before Docker starts leaves forwarding off and VPN traffic is dropped.
+echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-hogen-vpn.conf
+sysctl -w net.ipv4.ip_forward=1
+
 # Open firewall — SSH first to prevent lockout
 ufw allow OpenSSH comment "SSH"
 ufw allow 80/tcp   comment "HTTP"
