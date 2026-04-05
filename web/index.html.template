@@ -222,17 +222,17 @@
         <div class="field">
           <label>Сервер</label>
           <code>${SERVER_IP}</code>
-          <button class="copy-btn" onclick="copy(this, '${SERVER_IP}')">Копировать</button>
+          <button class="copy-btn" data-copy="${SERVER_IP}">Копировать</button>
         </div>
         <div class="field">
           <label>Порт</label>
           <code>${MTG_PORT}</code>
-          <button class="copy-btn" onclick="copy(this, '${MTG_PORT}')">Копировать</button>
+          <button class="copy-btn" data-copy="${MTG_PORT}">Копировать</button>
         </div>
         <div class="field">
           <label>Секрет</label>
           <code>${MTG_SECRET}</code>
-          <button class="copy-btn" onclick="copy(this, '${MTG_SECRET}')">Копировать</button>
+          <button class="copy-btn" data-copy="${MTG_SECRET}">Копировать</button>
         </div>
         <div class="field multiline">
           <label>Ссылка</label>
@@ -282,7 +282,7 @@
       <div class="section-label">URI (импорт по ссылке)</div>
       <div class="vless-uri-copy">
         <code id="vless-uri">${VLESS_URI}</code>
-        <button class="copy-btn" onclick="copy(this, document.getElementById('vless-uri').textContent)">Копировать</button>
+        <button class="copy-btn" data-copy-from="vless-uri">Копировать</button>
       </div>
       <a class="btn btn-tg" href="${VLESS_URI}" style="margin-bottom:20px;">&#8594; Открыть в приложении</a>
       <div class="qr-hint" style="margin-bottom:20px;">
@@ -297,47 +297,47 @@
         <div class="field">
           <label>Адрес</label>
           <code>${SERVER_IP}</code>
-          <button class="copy-btn" onclick="copy(this, '${SERVER_IP}')">Копировать</button>
+          <button class="copy-btn" data-copy="${SERVER_IP}">Копировать</button>
         </div>
         <div class="field">
           <label>Порт</label>
           <code>8443</code>
-          <button class="copy-btn" onclick="copy(this, '8443')">Копировать</button>
+          <button class="copy-btn" data-copy="8443">Копировать</button>
         </div>
         <div class="field">
           <label>UUID</label>
           <code>${XRAY_UUID}</code>
-          <button class="copy-btn" onclick="copy(this, '${XRAY_UUID}')">Копировать</button>
+          <button class="copy-btn" data-copy="${XRAY_UUID}">Копировать</button>
         </div>
         <div class="field">
           <label>Flow</label>
           <code>xtls-rprx-vision</code>
-          <button class="copy-btn" onclick="copy(this, 'xtls-rprx-vision')">Копировать</button>
+          <button class="copy-btn" data-copy="xtls-rprx-vision">Копировать</button>
         </div>
         <div class="field">
           <label>Security</label>
           <code>reality</code>
-          <button class="copy-btn" onclick="copy(this, 'reality')">Копировать</button>
+          <button class="copy-btn" data-copy="reality">Копировать</button>
         </div>
         <div class="field">
           <label>SNI</label>
           <code>${XRAY_SNI}</code>
-          <button class="copy-btn" onclick="copy(this, '${XRAY_SNI}')">Копировать</button>
+          <button class="copy-btn" data-copy="${XRAY_SNI}">Копировать</button>
         </div>
         <div class="field">
           <label>Fingerprint</label>
           <code>chrome</code>
-          <button class="copy-btn" onclick="copy(this, 'chrome')">Копировать</button>
+          <button class="copy-btn" data-copy="chrome">Копировать</button>
         </div>
         <div class="field">
           <label>Public Key</label>
           <code>${XRAY_PUBLIC_KEY}</code>
-          <button class="copy-btn" onclick="copy(this, '${XRAY_PUBLIC_KEY}')">Копировать</button>
+          <button class="copy-btn" data-copy="${XRAY_PUBLIC_KEY}">Копировать</button>
         </div>
         <div class="field">
           <label>Short ID</label>
           <code>${XRAY_SHORT_ID}</code>
-          <button class="copy-btn" onclick="copy(this, '${XRAY_SHORT_ID}')">Копировать</button>
+          <button class="copy-btn" data-copy="${XRAY_SHORT_ID}">Копировать</button>
         </div>
       </div>
     </div>
@@ -381,7 +381,7 @@
       <div class="section-label">URI (импорт по ссылке)</div>
       <div class="vless-uri-copy">
         <code id="ss-uri">${SS_URI}</code>
-        <button class="copy-btn" onclick="copy(this, document.getElementById('ss-uri').textContent)">Копировать</button>
+        <button class="copy-btn" data-copy-from="ss-uri">Копировать</button>
       </div>
 
       <div class="divider"></div>
@@ -390,22 +390,22 @@
         <div class="field">
           <label>Сервер</label>
           <code>${SERVER_IP}</code>
-          <button class="copy-btn" onclick="copy(this, '${SERVER_IP}')">Копировать</button>
+          <button class="copy-btn" data-copy="${SERVER_IP}">Копировать</button>
         </div>
         <div class="field">
           <label>Порт</label>
           <code>${SS_PORT}</code>
-          <button class="copy-btn" onclick="copy(this, '${SS_PORT}')">Копировать</button>
+          <button class="copy-btn" data-copy="${SS_PORT}">Копировать</button>
         </div>
         <div class="field">
           <label>Метод</label>
           <code>${SS_METHOD}</code>
-          <button class="copy-btn" onclick="copy(this, '${SS_METHOD}')">Копировать</button>
+          <button class="copy-btn" data-copy="${SS_METHOD}">Копировать</button>
         </div>
         <div class="field">
           <label>Пароль</label>
           <code>${SS_PASSWORD}</code>
-          <button class="copy-btn" onclick="copy(this, '${SS_PASSWORD}')">Копировать</button>
+          <button class="copy-btn" data-copy="${SS_PASSWORD}">Копировать</button>
         </div>
       </div>
     </div>
@@ -438,12 +438,12 @@
         <div class="field">
           <label>Сервер</label>
           <code>${SERVER_IP}</code>
-          <button class="copy-btn" onclick="copy(this, '${SERVER_IP}')">Копировать</button>
+          <button class="copy-btn" data-copy="${SERVER_IP}">Копировать</button>
         </div>
         <div class="field">
           <label>Тип</label>
           <code>IKEv2</code>
-          <button class="copy-btn" onclick="copy(this, 'IKEv2')">Копировать</button>
+          <button class="copy-btn" data-copy="IKEv2">Копировать</button>
         </div>
         <div class="field">
           <label>Аутентификация</label>
@@ -452,17 +452,17 @@
         <div class="field">
           <label>Логин</label>
           <code>${IKE_USER}</code>
-          <button class="copy-btn" onclick="copy(this, '${IKE_USER}')">Копировать</button>
+          <button class="copy-btn" data-copy="${IKE_USER}">Копировать</button>
         </div>
         <div class="field">
           <label>Пароль</label>
           <code>${IKE_PASSWORD}</code>
-          <button class="copy-btn" onclick="copy(this, '${IKE_PASSWORD}')">Копировать</button>
+          <button class="copy-btn" data-copy="${IKE_PASSWORD}">Копировать</button>
         </div>
         <div class="field">
           <label>Pre-shared key</label>
           <code>${IKE_PSK}</code>
-          <button class="copy-btn" onclick="copy(this, '${IKE_PSK}')">Копировать</button>
+          <button class="copy-btn" data-copy="${IKE_PSK}">Копировать</button>
         </div>
       </div>
 
@@ -483,47 +483,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
     integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSi2jPeeaHnLj3GlWPjHFzXQy0f5EWFVVoaA=="
     crossorigin="anonymous"></script>
-  <script>
-    // VLESS QR code
-    try {
-      new QRCode(document.getElementById('qr-canvas'), {
-        text: document.getElementById('vless-uri').textContent.trim(),
-        width: 160,
-        height: 160,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M
-      });
-    } catch (e) {
-      document.getElementById('qr-canvas').textContent = '(QR недоступен)';
-    }
-
-    // Shadowsocks QR code
-    try {
-      new QRCode(document.getElementById('ss-qr-canvas'), {
-        text: document.getElementById('ss-uri').textContent.trim(),
-        width: 160,
-        height: 160,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M
-      });
-    } catch (e) {
-      document.getElementById('ss-qr-canvas').textContent = '(QR недоступен)';
-    }
-
-    // Copy to clipboard
-    function copy(btn, text) {
-      navigator.clipboard.writeText(text).then(function () {
-        var orig = btn.textContent;
-        btn.textContent = 'Скопировано';
-        btn.classList.add('copied');
-        setTimeout(function () {
-          btn.textContent = orig;
-          btn.classList.remove('copied');
-        }, 1500);
-      });
-    }
-  </script>
+  <script src="credentials.js"></script>
 </body>
 </html>

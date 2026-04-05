@@ -26,3 +26,4 @@ mkdir -p "$TOKEN_DIR"
 envsubst '${SERVER_IP}${MTG_PORT}${MTG_SECRET}${MTG_LINK}${XRAY_UUID}${XRAY_PUBLIC_KEY}${XRAY_SHORT_ID}${XRAY_SNI}${VLESS_URI}${XRAY_ROTATION_MESSAGE}${SS_URI}${SS_PORT}${SS_METHOD}${SS_PASSWORD}${IKE_PSK}${IKE_USER}${IKE_PASSWORD}' \
   < "${SCRIPT_DIR}/web/index.html.template" \
   > "${TOKEN_DIR}/index.html"
+cp "${SCRIPT_DIR}/web/credentials.js" "${TOKEN_DIR}/credentials.js"

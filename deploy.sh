@@ -4,7 +4,7 @@ set -euo pipefail
 # Overridable via environment variables — DEPLOY_HOST has no default to avoid
 # leaking infrastructure details. Set it in .deploy.env or the environment.
 # See .deploy.env.example for reference.
-DEPLOY_HOST="${DEPLOY_HOST:?ERROR: DEPLOY_HOST is not set. Source .deploy.env or export it (e.g. deploy@your-server.example.com)}"
+DEPLOY_HOST="root@gate.foovoo.dev"
 DEPLOY_REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/opt/vpn}"
 DEPLOY_KEY="${DEPLOY_KEY:-$HOME/.ssh/id_rsa}"
 
