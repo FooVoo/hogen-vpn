@@ -19,6 +19,7 @@ WEBROOT="${CREDENTIALS_WEBROOT:-/var/www/vpn}"
 VHOST_PATH="${NGINX_VHOST_PATH:-/etc/nginx/sites-available/vpn}"
 
 # Install tools
+apt-get update -q
 apt-get install -y --quiet certbot python3-certbot-nginx gettext-base fail2ban
 
 # Open firewall — SSH first to prevent lockout
@@ -51,8 +52,8 @@ export CREDENTIALS_DOMAIN WEBROOT
 envsubst '${CREDENTIALS_DOMAIN}${WEBROOT}${PAGE_TOKEN}' \
   < "$SCRIPT_DIR/web/nginx-vhost.conf.template" \
   > "$VHOST_PATH"
-ln -sf "$VHOST_PATH" /etc/nginx/sites-enabled/vpn
 nginx -t
+ln -sf "$VHOST_PATH" /etc/nginx/sites-enabled/vpn
 systemctl reload nginx
 
 # Get SSL certificate (certbot will update the vhost automatically)
@@ -74,6 +75,7 @@ systemctl enable --now fail2ban
 fail2ban-client reload || true
 
 # Install Docker Compose auto-start service
+command -v docker >/dev/null || { echo "ERROR: docker not found in PATH — install Docker Engine first"; exit 1; }
 DOCKER_BIN="$(command -v docker)"
 AUTOSTART_SERVICE_PATH="/etc/systemd/system/hogen-vpn.service"
 cat > "$AUTOSTART_SERVICE_PATH" <<EOF
@@ -120,6 +122,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=${SCRIPT_DIR}
 ExecStart=${SCRIPT_DIR}/rotate-reality-cover.sh
+TimeoutStartSec=120
 EOF
 
   cat > "$ROTATION_TIMER_PATH" <<EOF
@@ -167,6 +170,7 @@ Wants=docker.service
 Type=oneshot
 WorkingDirectory=${SCRIPT_DIR}
 ExecStart=${SCRIPT_DIR}/check.sh
+TimeoutStartSec=30
 EOF
 
 cat > "$CHECK_TIMER_PATH" <<EOF
