@@ -59,6 +59,16 @@ cat > "${SCRIPT_DIR}/xray/config.json" <<EOF
             }
         }
     ],
+    "routing": {
+        "domainStrategy": "IPIfNonMatch",
+        "rules": [
+            {
+                "type": "field",
+                "ip": ["geoip:private"],
+                "outboundTag": "block"
+            }
+        ]
+    },
     "outbounds": [
         { "protocol": "freedom", "tag": "direct" },
         { "protocol": "blackhole", "tag": "block" }

@@ -19,7 +19,8 @@ services:
       start_period: 15s
 
   ipsec:
-    image: hwdsl2/ipsec-vpn-server
+    # strongSwan uses setuid helper binaries; no-new-privileges would break IKEv2
+    image: hwdsl2/ipsec-vpn-server:latest
     restart: unless-stopped
     environment:
       VPN_IPSEC_PSK: "${IKE_PSK}"
@@ -34,8 +35,6 @@ services:
       - "4500:4500/udp"
     cap_add:
       - NET_ADMIN
-    security_opt:
-      - no-new-privileges:true
     sysctls:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.accept_redirects=0
@@ -66,7 +65,7 @@ services:
       - ./xray/config.json:/etc/xray/config.json:ro
     command: run -c /etc/xray/config.json
     healthcheck:
-      test: ["CMD-SHELL", "xray api statsquery 2>&1 || ss -tlnp | grep -q 8443"]
+      test: ["CMD-SHELL", "ss -tlnp | grep -q ':8443 '"]
       interval: 30s
       timeout: 5s
       retries: 3
