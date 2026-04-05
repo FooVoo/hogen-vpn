@@ -46,10 +46,6 @@ cat > "${SCRIPT_DIR}/xray/config.json" <<EOF
                     "shortIds": ["${XRAY_SHORT_ID}"],
                     "maxTimeDiff": 60000
                 }
-            },
-            "sniffing": {
-                "enabled": true,
-                "destOverride": ["http", "tls", "quic"]
             }
         },
         {

@@ -137,7 +137,7 @@ SS_URI="ss://${SS_USERINFO}@${SERVER_IP}:${SS_PORT}#SS-VPN"
 
 echo "Generating IKEv2 credentials..."
 IKE_PSK=$(openssl rand -base64 24 | tr -d '\n')
-IKE_USER="vpnuser"
+IKE_USER="vpn$(openssl rand -hex 4)"
 IKE_PASSWORD=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
 
 # Composite connection strings

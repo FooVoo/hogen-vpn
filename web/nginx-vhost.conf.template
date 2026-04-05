@@ -3,18 +3,8 @@ server {
     server_name ${CREDENTIALS_DOMAIN};
     server_tokens off;
 
-    # /check — public status page, lighter rate limit, no credentials
-    location /check {
-        root ${WEBROOT};
-        index index.html;
-        try_files $uri $uri/ $uri/index.html =404;
-
-        limit_req zone=vpn_check burst=10 nodelay;
-
-        add_header Cache-Control "no-store, no-cache" always;
-        add_header X-Robots-Tag "noindex, nofollow" always;
-        add_header X-Content-Type-Options "nosniff" always;
-    }
+    # /check — NOT served publicly; accessible only via SSH tunnel to 127.0.0.1:9000
+    location /check { return 444; }
 
     # Credentials page — only the exact token path is served
     location /${PAGE_TOKEN}/ {

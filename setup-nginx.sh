@@ -40,6 +40,12 @@ ufw --force enable
 # so this must be in place before the first nginx -t
 cp "$SCRIPT_DIR/web/nginx-ratelimit.conf" /etc/nginx/conf.d/vpn-ratelimit.conf
 
+# Install local-only health-check listener (127.0.0.1:9000 — SSH access only)
+export WEBROOT
+envsubst '${WEBROOT}' \
+  < "$SCRIPT_DIR/web/nginx-check-local.conf.template" \
+  > /etc/nginx/conf.d/vpn-check-local.conf
+
 # Install nginx vhost (render template with env vars)
 export CREDENTIALS_DOMAIN WEBROOT
 envsubst '${CREDENTIALS_DOMAIN}${WEBROOT}${PAGE_TOKEN}' \
@@ -50,8 +56,15 @@ nginx -t
 systemctl reload nginx
 
 # Get SSL certificate (certbot will update the vhost automatically)
+# Set LETSENCRYPT_EMAIL in .env or environment to receive expiry notifications.
+if [[ -n "${LETSENCRYPT_EMAIL:-}" ]]; then
+  CERTBOT_EMAIL_ARGS=(--email "$LETSENCRYPT_EMAIL" --no-eff-email)
+else
+  echo "WARNING: LETSENCRYPT_EMAIL not set — certificate expiry notifications disabled"
+  CERTBOT_EMAIL_ARGS=(--register-unsafely-without-email)
+fi
 certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos \
-  --register-unsafely-without-email --redirect
+  "${CERTBOT_EMAIL_ARGS[@]}" --redirect
 
 # Configure and enable fail2ban
 mkdir -p /etc/fail2ban/jail.d /etc/fail2ban/filter.d
@@ -180,7 +193,7 @@ echo "Health-check monitoring enabled (vpn-health-check.timer)."
 echo ""
 echo "Done."
 echo "Credentials page: https://${DOMAIN}/${PAGE_TOKEN}/"
-echo "Status page:       https://${DOMAIN}/check"
+echo "Status page (SSH): ssh user@${DOMAIN} curl -s http://127.0.0.1:9000/check/status.json"
 echo "Share the credentials URL — it is the only credential needed."
 echo ""
 echo "Container status:"

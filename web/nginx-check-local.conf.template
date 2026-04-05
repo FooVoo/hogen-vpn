@@ -1,0 +1,21 @@
+# Local-only health-check endpoint — NOT accessible from the internet.
+# Installed to /etc/nginx/conf.d/vpn-check-local.conf by setup-nginx.sh.
+# Access requires an active SSH session:
+#   ssh user@server curl -s http://127.0.0.1:9000/check/status.json
+server {
+    listen 127.0.0.1:9000;
+    server_name _;
+    server_tokens off;
+    root ${WEBROOT};
+
+    location /check/ {
+        index index.html;
+        try_files $uri $uri/ $uri/index.html =404;
+
+        add_header Cache-Control "no-store, no-cache" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    location / { return 444; }
+}
