@@ -28,10 +28,10 @@ set -a; source "$ENV_FILE"; set +a
 [[ -n "${PAGE_TOKEN:-}" ]]       || { echo "ERROR: PAGE_TOKEN is missing"; exit 1; }
 XRAY_ROTATE_HOURS="${XRAY_ROTATE_HOURS:-2}"
 
-# MTProxy fingerprint vars — provide defaults so existing deployments without
-# these vars still work on first rotation after upgrade
-MTG_COVER_DOMAINS="${MTG_COVER_DOMAINS:-web.telegram.org,www.google.com,www.youtube.com,www.cloudflare.com,www.microsoft.com,www.yandex.ru,www.vk.com,mail.ru,www.ozon.ru,habr.com}"
-MTG_COVER_DOMAIN="${MTG_COVER_DOMAIN:-google.com}"
+# MTProxy fingerprint vars — fall back to the REALITY pool so old deployments
+# that pre-date MTG_COVER_DOMAINS still rotate correctly after an upgrade.
+MTG_COVER_DOMAINS="${MTG_COVER_DOMAINS:-$XRAY_COVER_DOMAINS}"
+MTG_COVER_DOMAIN="${MTG_COVER_DOMAIN:-$XRAY_SNI}"
 
 IFS=',' read -r -a COVER_DOMAIN_POOL <<< "$XRAY_COVER_DOMAINS"
 ROTATABLE_DOMAINS=()

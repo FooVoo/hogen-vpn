@@ -25,27 +25,6 @@ docker pull --quiet nineseconds/mtg:2 >/dev/null
 docker pull --quiet ghcr.io/xtls/xray-core:26.3.27 >/dev/null
 docker pull --quiet hwdsl2/ipsec-vpn-server:latest >/dev/null
 
-echo "Generating MTProxy secret..."
-mkdir -p mtg
-MTG_COVER_DOMAINS_LIST=(
-  "web.telegram.org"   "desktop.telegram.org"
-  "www.google.com"     "www.youtube.com"      "www.cloudflare.com"
-  "www.microsoft.com"  "www.amazon.com"       "www.apple.com"
-  "www.netflix.com"    "www.dropbox.com"
-  "www.yandex.ru"      "www.vk.com"           "mail.ru"
-  "www.ozon.ru"        "www.wildberries.ru"   "www.sberbank.ru"
-  "www.tinkoff.ru"     "www.gosuslugi.ru"     "habr.com"   "www.rbc.ru"
-)
-MTG_COVER_DOMAIN="${MTG_COVER_DOMAINS_LIST[$RANDOM % ${#MTG_COVER_DOMAINS_LIST[@]}]}"
-MTG_COVER_DOMAINS=$(IFS=,; echo "${MTG_COVER_DOMAINS_LIST[*]}")
-MTG_SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret "$MTG_COVER_DOMAIN")
-[[ -n "$MTG_SECRET" ]] || { echo "ERROR: MTProxy secret generation returned empty output"; exit 1; }
-cat > mtg/config.toml <<EOF
-secret = "${MTG_SECRET}"
-bind-to = "0.0.0.0:3128"
-EOF
-chmod 600 mtg/config.toml
-
 echo "Generating VLESS credentials..."
 if [[ -f /proc/sys/kernel/random/uuid ]]; then
   XRAY_UUID=$(cat /proc/sys/kernel/random/uuid)
@@ -60,7 +39,10 @@ XRAY_KEYPAIR=$(docker run --rm ghcr.io/xtls/xray-core:26.3.27 x25519)
 XRAY_PRIVATE_KEY=$(echo "$XRAY_KEYPAIR" | awk -F': *' '/^PrivateKey:|^Private key:/{print $2; exit}')
 XRAY_PUBLIC_KEY=$(echo "$XRAY_KEYPAIR"  | awk -F': *' '/Password \(PublicKey\):|^Public key:/{print $2; exit}')
 XRAY_SHORT_ID=$(openssl rand -hex 8)
-REALITY_COVER_DOMAINS=(
+
+# Unified cover-domain pool — used by both REALITY SNI fronting and MTProxy FakeTLS.
+# All entries must support TLS 1.3 on port 443.
+COVER_DOMAINS=(
   # International — accessible from Russia
   "www.microsoft.com"
   "www.cloudflare.com"
@@ -105,25 +87,32 @@ if [[ -n "$REALITY_COVER_DOMAIN" ]]; then
   XRAY_SNI="${XRAY_SNI%%/*}"
   XRAY_SNI="${XRAY_SNI%%:*}"
   DOMAIN_IN_POOL=false
-  for COVER_DOMAIN in "${REALITY_COVER_DOMAINS[@]}"; do
-    if [[ "$COVER_DOMAIN" == "$XRAY_SNI" ]]; then
-      DOMAIN_IN_POOL=true
-      break
-    fi
+  for _D in "${COVER_DOMAINS[@]}"; do
+    [[ "$_D" == "$XRAY_SNI" ]] && { DOMAIN_IN_POOL=true; break; }
   done
-  if [[ "$DOMAIN_IN_POOL" == false ]]; then
-    REALITY_COVER_DOMAINS=("$XRAY_SNI" "${REALITY_COVER_DOMAINS[@]}")
-  fi
+  [[ "$DOMAIN_IN_POOL" == true ]] || COVER_DOMAINS=("$XRAY_SNI" "${COVER_DOMAINS[@]}")
 else
-  XRAY_SNI="${REALITY_COVER_DOMAINS[$RANDOM % ${#REALITY_COVER_DOMAINS[@]}]}"
+  XRAY_SNI="${COVER_DOMAINS[$RANDOM % ${#COVER_DOMAINS[@]}]}"
 fi
 if [[ -z "$XRAY_SNI" || -z "$XRAY_PRIVATE_KEY" || -z "$XRAY_PUBLIC_KEY" ]]; then
   echo "ERROR: failed to generate REALITY credentials"
   exit 1
 fi
-XRAY_COVER_DOMAINS=$(IFS=,; echo "${REALITY_COVER_DOMAINS[*]}")
+XRAY_COVER_DOMAINS=$(IFS=,; echo "${COVER_DOMAINS[*]}")
 XRAY_ROTATE_HOURS=2
 XRAY_DEST="${XRAY_SNI}:443"
+
+echo "Generating MTProxy secret..."
+mkdir -p mtg
+MTG_COVER_DOMAIN="${COVER_DOMAINS[$RANDOM % ${#COVER_DOMAINS[@]}]}"
+MTG_COVER_DOMAINS="$XRAY_COVER_DOMAINS"
+MTG_SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret "$MTG_COVER_DOMAIN")
+[[ -n "$MTG_SECRET" ]] || { echo "ERROR: MTProxy secret generation returned empty output"; exit 1; }
+cat > mtg/config.toml <<EOF
+secret = "${MTG_SECRET}"
+bind-to = "0.0.0.0:3128"
+EOF
+chmod 600 mtg/config.toml
 
 echo "Generating page credentials..."
 PAGE_TOKEN=$(openssl rand -hex 16)
