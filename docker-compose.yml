@@ -29,6 +29,10 @@ services:
       VPN_IKEV2_ONLY: "yes"
       VPN_DNS_SRV1: "1.1.1.1"
       VPN_DNS_SRV2: "8.8.8.8"
+      # Optional: FQDN that resolves to this server, used as the IKEv2 server
+      # identity in the certificate. Improves reconnection on Apple clients.
+      # Set VPN_DNS_NAME in .env; leave empty to fall back to the server IP.
+      VPN_DNS_NAME: "${VPN_DNS_NAME:-}"
     ports:
       - "500:500/udp"
       - "4500:4500/udp"
@@ -51,11 +55,15 @@ services:
       - ./ipsec/data:/etc/ipsec.d
       - /lib/modules:/lib/modules:ro
     healthcheck:
-      test: ["CMD-SHELL", "ipsec status >/dev/null 2>&1"]
+      # 'ipsec status' returns 0 even when pluto's socket is stuck and cannot
+      # accept new IKE handshakes. Checking that port 4500 (NAT-T) is bound AND
+      # the ikev2-cp connection is loaded detects the stuck state so Docker can
+      # auto-restart the container (restart: unless-stopped triggers on unhealthy).
+      test: ["CMD-SHELL", "ipsec status 2>/dev/null | grep -q ikev2-cp && ss -ulnp | grep -q ':4500 '"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
 
   xray:
     image: ghcr.io/xtls/xray-core:26.3.27

@@ -184,7 +184,30 @@ The `ipsec` container takes ~60 seconds to initialize on first run (generates PK
 
 ---
 
-## 8. Export IKEv2 client profiles (first run only)
+## 8. Apply IKEv2 reconnection fix (first run only)
+
+This step patches the IKEv2 configuration so clients can reconnect after a drop
+without requiring a container restart.
+
+```bash
+cd /opt/vpn
+./setup-ipsec.sh
+```
+
+The script waits for `ipsec` to be healthy, then:
+- Creates `ipsec/data/00-reconnect-fix.conf` — sets `uniqueids=replace` so
+  a reconnecting client replaces its stale SA instead of conflicting with it
+- Patches `ipsec/data/ikev2.conf` — tightens dead-peer detection from 30 s to
+  15 s (with a 60 s timeout) to clear stale SAs faster after a client drops
+- Restarts the `ipsec` container to load the new settings
+
+Both files live in `ipsec/data/` (the persistent volume), so re-running the
+script on a subsequent `docker compose up -d` is safe — it skips patches
+already applied.
+
+---
+
+## 9. Export IKEv2 client profiles (first run only)
 
 After `ipsec` is healthy:
 
@@ -200,7 +223,7 @@ Distribute these to users via a secure channel (not email).
 
 ---
 
-## 9. Verify each protocol
+## 10. Verify each protocol
 
 ### MTProxy
 
@@ -271,6 +294,19 @@ Use the server, username, password, and PSK shown on the credentials page.
 docker compose logs ipsec
 # First run generates PKI — takes ~60s. If still failing, check /lib/modules is mounted
 ```
+
+**IKEv2 clients cannot reconnect after a drop (or reconnection requires a container restart):**
+
+This is fixed by `setup-ipsec.sh` (step 8). If you skipped that step or are applying the fix to an existing deployment:
+```bash
+./setup-ipsec.sh
+```
+The two root causes and their fixes:
+- `uniqueids=no` (hwdsl2 default) lets reconnecting clients create a second SA alongside the stale one; the IP pool then has a conflict and rejects the new connection. Fixed by `00-reconnect-fix.conf` (sets `uniqueids=replace`).
+- Stale SAs linger for up to 2–3 minutes before DPD clears them. Fixed by patching `ikev2.conf` (`dpddelay=15`, `dpdtimeout=60`).
+
+The improved healthcheck (`ss -ulnp | grep ':4500'`) also detects when pluto's socket is stuck so Docker auto-restarts the container without manual intervention.
+
 
 **Xray won't start:**
 ```bash
