@@ -21,9 +21,9 @@ fi
 command -v docker >/dev/null 2>&1 || { echo "ERROR: docker is not installed"; exit 1; }
 
 echo "Pulling images..."
-docker pull nineseconds/mtg:2 --quiet >/dev/null
-docker pull ghcr.io/xtls/xray-core:26.3.27 --quiet >/dev/null
-docker pull hwdsl2/ipsec-vpn-server --quiet >/dev/null
+docker pull --quiet nineseconds/mtg:2 >/dev/null
+docker pull --quiet ghcr.io/xtls/xray-core:26.3.27 >/dev/null
+docker pull --quiet hwdsl2/ipsec-vpn-server:latest >/dev/null
 
 echo "Generating MTProxy secret..."
 mkdir -p mtg
@@ -39,6 +39,7 @@ MTG_COVER_DOMAINS_LIST=(
 MTG_COVER_DOMAIN="${MTG_COVER_DOMAINS_LIST[$RANDOM % ${#MTG_COVER_DOMAINS_LIST[@]}]}"
 MTG_COVER_DOMAINS=$(IFS=,; echo "${MTG_COVER_DOMAINS_LIST[*]}")
 MTG_SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret "$MTG_COVER_DOMAIN")
+[[ -n "$MTG_SECRET" ]] || { echo "ERROR: MTProxy secret generation returned empty output"; exit 1; }
 cat > mtg/config.toml <<EOF
 secret = "${MTG_SECRET}"
 bind-to = "0.0.0.0:3128"
@@ -100,6 +101,7 @@ REALITY_COVER_DOMAINS=(
 )
 if [[ -n "$REALITY_COVER_DOMAIN" ]]; then
   XRAY_SNI="${REALITY_COVER_DOMAIN#https://}"
+  XRAY_SNI="${XRAY_SNI#http://}"
   XRAY_SNI="${XRAY_SNI%%/*}"
   XRAY_SNI="${XRAY_SNI%%:*}"
   DOMAIN_IN_POOL=false
@@ -138,7 +140,7 @@ SS_URI="ss://${SS_USERINFO}@${SERVER_IP}:${SS_PORT}#SS-VPN"
 echo "Generating IKEv2 credentials..."
 IKE_PSK=$(openssl rand -base64 24 | tr -d '\n')
 IKE_USER="vpn$(openssl rand -hex 4)"
-IKE_PASSWORD=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
+IKE_PASSWORD=$(openssl rand -hex 8)
 
 # Composite connection strings
 MTG_LINK="https://t.me/proxy?server=${SERVER_IP}&port=${MTG_PORT}&secret=${MTG_SECRET}"

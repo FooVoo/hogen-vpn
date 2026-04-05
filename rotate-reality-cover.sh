@@ -109,6 +109,7 @@ else
   NEXT_MTG_DOMAIN="$CURRENT_MTG_DOMAIN"
 fi
 MTG_SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret "$NEXT_MTG_DOMAIN")
+[[ -n "$MTG_SECRET" ]] || { echo "ERROR: MTProxy secret generation returned empty output"; exit 1; }
 MTG_COVER_DOMAIN="$NEXT_MTG_DOMAIN"
 MTG_LINK="https://t.me/proxy?server=${SERVER_IP}&port=${MTG_PORT}&secret=${MTG_SECRET}"
 mkdir -p "${SCRIPT_DIR}/mtg"
