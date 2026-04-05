@@ -40,7 +40,9 @@ case "${1:-}" in
   run)
     if [[ "${3:-}" == "nineseconds/mtg:2" && "${4:-}" == "generate-secret" ]]; then
       DOMAIN="${5:-google.com}"
-      printf 'eeMOCKSECRET_%s\n' "${DOMAIN//[^a-zA-Z0-9._-]/_}"
+      # Produce a realistic ee<hex> secret: ee + SHA-256(domain) truncated to 60 hex chars
+      HEX=$(printf '%s' "$DOMAIN" | openssl dgst -sha256 | awk '{print $2}' | head -c 60)
+      printf 'ee%s\n' "$HEX"
       exit 0
     fi
     ;;
@@ -299,9 +301,10 @@ fi
 
 echo ""
 echo "=== Test 15: MTG_LINK updated in .env ==="
+NEW_MTG_SECRET=$(grep '^MTG_SECRET=' "$WORK_DIR/.env" | cut -d= -f2)
 NEW_MTG_LINK=$(grep '^MTG_LINK=' "$WORK_DIR/.env" | head -1)
-if echo "$NEW_MTG_LINK" | grep -q "MOCK"; then
-  report PASS "MTG_LINK contains regenerated mock secret"
+if echo "$NEW_MTG_LINK" | grep -qF "$NEW_MTG_SECRET"; then
+  report PASS "MTG_LINK contains updated MTG_SECRET"
 else
   report FAIL "MTG_LINK not updated: $NEW_MTG_LINK"
 fi

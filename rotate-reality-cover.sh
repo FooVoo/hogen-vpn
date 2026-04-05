@@ -99,17 +99,28 @@ VLESS_URI="vless://${XRAY_UUID}@${SERVER_IP}:8443?encryption=none&flow=xtls-rprx
 # --- MTProxy FakeTLS fingerprint rotation ---
 CURRENT_MTG_DOMAIN="$MTG_COVER_DOMAIN"
 IFS=',' read -r -a MTG_DOMAIN_POOL <<< "$MTG_COVER_DOMAINS"
+# Prefer a domain that differs from both the current MTG domain and the new
+# REALITY SNI to keep the two fingerprints independent.
 MTG_CANDIDATES=()
 for D in "${MTG_DOMAIN_POOL[@]}"; do
-  [[ -n "$D" && "$D" != "$CURRENT_MTG_DOMAIN" ]] && MTG_CANDIDATES+=("$D")
+  [[ -n "$D" && "$D" != "$CURRENT_MTG_DOMAIN" && "$D" != "$XRAY_SNI" ]] && MTG_CANDIDATES+=("$D")
 done
+# Fall back: allow the REALITY domain if no other candidates remain
+if (( ${#MTG_CANDIDATES[@]} == 0 )); then
+  for D in "${MTG_DOMAIN_POOL[@]}"; do
+    [[ -n "$D" && "$D" != "$CURRENT_MTG_DOMAIN" ]] && MTG_CANDIDATES+=("$D")
+  done
+fi
 if (( ${#MTG_CANDIDATES[@]} > 0 )); then
   NEXT_MTG_DOMAIN="${MTG_CANDIDATES[$RANDOM % ${#MTG_CANDIDATES[@]}]}"
 else
   NEXT_MTG_DOMAIN="$CURRENT_MTG_DOMAIN"
 fi
 MTG_SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret "$NEXT_MTG_DOMAIN")
-[[ -n "$MTG_SECRET" ]] || { echo "ERROR: MTProxy secret generation returned empty output"; exit 1; }
+[[ "$MTG_SECRET" =~ ^ee[0-9a-f]{32,}$ ]] || {
+  echo "ERROR: MTProxy secret has unexpected format (expected ee<hex>): '${MTG_SECRET:0:30}'"
+  exit 1
+}
 MTG_COVER_DOMAIN="$NEXT_MTG_DOMAIN"
 MTG_LINK="https://t.me/proxy?server=${SERVER_IP}&port=${MTG_PORT}&secret=${MTG_SECRET}"
 mkdir -p "${SCRIPT_DIR}/mtg"

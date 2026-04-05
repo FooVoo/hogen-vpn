@@ -108,7 +108,10 @@ mkdir -p mtg
 MTG_COVER_DOMAIN="${COVER_DOMAINS[$RANDOM % ${#COVER_DOMAINS[@]}]}"
 MTG_COVER_DOMAINS="$XRAY_COVER_DOMAINS"
 MTG_SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret "$MTG_COVER_DOMAIN")
-[[ -n "$MTG_SECRET" ]] || { echo "ERROR: MTProxy secret generation returned empty output"; exit 1; }
+[[ "$MTG_SECRET" =~ ^ee[0-9a-f]{32,}$ ]] || {
+  echo "ERROR: MTProxy secret has unexpected format (expected ee<hex>): '${MTG_SECRET:0:30}'"
+  exit 1
+}
 cat > mtg/config.toml <<EOF
 secret = "${MTG_SECRET}"
 bind-to = "0.0.0.0:3128"
