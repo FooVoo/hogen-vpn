@@ -27,7 +27,6 @@ services:
       VPN_USER: "${IKE_USER}"
       VPN_PASSWORD: "${IKE_PASSWORD}"
       VPN_IKEV2_ONLY: "yes"
-      VPN_DNS_NAME: "${SERVER_IP}"
       VPN_DNS_SRV1: "1.1.1.1"
       VPN_DNS_SRV2: "8.8.8.8"
     ports:

@@ -472,7 +472,7 @@
         <strong>iOS / macOS .mobileconfig, Android .sswan:</strong>
         После первого запуска сервера выполни на нём команду для генерации профиля:
         <div style="margin-top:8px;">
-          <code style="font-size:12px;color:#a5f3fc;word-break:break-all;">docker exec ipsec ikev2.sh --export-client client</code>
+          <code style="font-size:12px;color:#a5f3fc;word-break:break-all;">docker compose exec ipsec ikev2.sh --export-client client</code>
         </div>
         Файл появится в <code style="color:#a5f3fc;">./ipsec/data/</code> и включает CA-сертификат.
       </div>

@@ -189,7 +189,7 @@ The `ipsec` container takes ~60 seconds to initialize on first run (generates PK
 After `ipsec` is healthy:
 
 ```bash
-docker exec ipsec ikev2.sh --export-client client
+docker compose exec ipsec ikev2.sh --export-client client
 ```
 
 Files appear in `./ipsec/data/`:
@@ -240,7 +240,7 @@ Import the `ss://` URI from the credentials page into v2rayNG or Shadowrocket.
 ### IKEv2
 
 ```bash
-docker exec ipsec ipsec status
+docker compose exec ipsec ipsec status
 ```
 
 Connect from iOS: Settings → General → VPN & Device Management → VPN → Add VPN Configuration → IKEv2.
