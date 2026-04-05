@@ -103,6 +103,7 @@ XRAY_ROTATE_HOURS=2
 XRAY_DEST="${XRAY_SNI}:443"
 
 echo "Generating MTProxy secret..."
+MTG_PORT=2083
 mkdir -p mtg
 MTG_COVER_DOMAIN="${COVER_DOMAINS[$RANDOM % ${#COVER_DOMAINS[@]}]}"
 MTG_COVER_DOMAINS="$XRAY_COVER_DOMAINS"
@@ -116,8 +117,6 @@ chmod 600 mtg/config.toml
 
 echo "Generating page credentials..."
 PAGE_TOKEN=$(openssl rand -hex 16)
-
-MTG_PORT=2083
 
 echo "Generating Shadowsocks credentials..."
 SS_METHOD="2022-blake3-aes-256-gcm"
