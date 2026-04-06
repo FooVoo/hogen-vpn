@@ -31,6 +31,12 @@ apt-get install -y --quiet certbot python3-certbot-nginx gettext-base fail2ban b
 echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-hogen-vpn.conf
 sysctl -w net.ipv4.ip_forward=1
 
+# Harden firewall defaults before opening specific ports.
+# Explicit defaults make this script idempotent regardless of any prior UFW state
+# (e.g., a server that previously ran 'ufw default allow incoming').
+ufw default deny incoming
+ufw default allow outgoing
+
 # Open firewall — SSH first to prevent lockout
 ufw allow OpenSSH comment "SSH"
 ufw allow 80/tcp   comment "HTTP"
