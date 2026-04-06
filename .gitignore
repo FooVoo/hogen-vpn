@@ -8,3 +8,4 @@ xray/config.json
 ipsec/data/
 web/index.html
 web/.htpasswd
+rotate-api/target/

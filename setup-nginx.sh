@@ -5,14 +5,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-[[ $EUID -eq 0 ]] || { echo "Run as root"; exit 1; }
-[[ -f "$SCRIPT_DIR/.env" ]] || { echo "ERROR: .env not found — run generate-secrets.sh first"; exit 1; }
+# shellcheck source=lib/log.sh
+source "${SCRIPT_DIR}/lib/log.sh"
+
+[[ $EUID -eq 0 ]] || { log_error "Run as root"; exit 1; }
+[[ -f "$SCRIPT_DIR/.env" ]] || { log_error ".env not found — run generate-secrets.sh first"; exit 1; }
 
 # Load credentials
 set -a; source "$SCRIPT_DIR/.env"; set +a
 
-[[ -n "${CREDENTIALS_DOMAIN:-}" ]] || { echo "ERROR: CREDENTIALS_DOMAIN is missing in .env"; exit 1; }
-[[ -n "${PAGE_TOKEN:-}" ]]        || { echo "ERROR: PAGE_TOKEN is missing — re-run generate-secrets.sh"; exit 1; }
+[[ -n "${CREDENTIALS_DOMAIN:-}" ]] || { log_error "CREDENTIALS_DOMAIN is missing in .env"; exit 1; }
+[[ -n "${PAGE_TOKEN:-}" ]]        || { log_error "PAGE_TOKEN is missing — re-run generate-secrets.sh"; exit 1; }
 
 DOMAIN="${CREDENTIALS_DOMAIN}"
 WEBROOT="${CREDENTIALS_WEBROOT:-/var/www/vpn}"
@@ -20,7 +23,7 @@ VHOST_PATH="${NGINX_VHOST_PATH:-/etc/nginx/sites-available/vpn}"
 
 # Install tools
 apt-get update -q
-apt-get install -y --quiet certbot python3-certbot-nginx gettext-base fail2ban
+apt-get install -y --quiet certbot python3-certbot-nginx gettext-base fail2ban build-essential
 
 # Persist host IP forwarding — required for IKEv2 traffic routing.
 # Docker enables ip_forward at runtime but doesn't persist it; without this
@@ -45,7 +48,16 @@ ufw --force enable
 
 # Install nginx rate limiting zone first — vhost references zone=vpn_auth
 # so this must be in place before the first nginx -t
-cp "$SCRIPT_DIR/web/nginx-ratelimit.conf" /etc/nginx/conf.d/vpn-ratelimit.conf
+cp "$SCRIPT_DIR/web/nginx-ratelimit.conf"       /etc/nginx/conf.d/vpn-ratelimit.conf
+cp "$SCRIPT_DIR/web/nginx-netdata-proxy.conf"   /etc/nginx/conf.d/vpn-netdata-proxy.conf
+
+# Generate basic auth credentials for the Netdata dashboard.
+# Username: admin  Password: PAGE_TOKEN
+# openssl passwd -apr1 produces an Apache MD5 hash accepted by nginx.
+HTPASSWD_HASH=$(openssl passwd -apr1 "${PAGE_TOKEN}")
+printf 'admin:%s\n' "$HTPASSWD_HASH" > /etc/nginx/.htpasswd-netdata
+chmod 640 /etc/nginx/.htpasswd-netdata
+chown root:www-data /etc/nginx/.htpasswd-netdata
 
 # Install local-only health-check listener (127.0.0.1:9000 — SSH access only)
 export WEBROOT
@@ -67,7 +79,7 @@ systemctl reload nginx
 if [[ -n "${LETSENCRYPT_EMAIL:-}" ]]; then
   CERTBOT_EMAIL_ARGS=(--email "$LETSENCRYPT_EMAIL" --no-eff-email)
 else
-  echo "WARNING: LETSENCRYPT_EMAIL not set — certificate expiry notifications disabled"
+  log_warn "LETSENCRYPT_EMAIL not set — certificate expiry notifications disabled"
   CERTBOT_EMAIL_ARGS=(--register-unsafely-without-email)
 fi
 certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos \
@@ -81,7 +93,7 @@ systemctl enable --now fail2ban
 fail2ban-client reload || true
 
 # Install Docker Compose auto-start service
-command -v docker >/dev/null || { echo "ERROR: docker not found in PATH — install Docker Engine first"; exit 1; }
+command -v docker >/dev/null || { log_error "docker not found in PATH — install Docker Engine first"; exit 1; }
 DOCKER_BIN="$(command -v docker)"
 AUTOSTART_SERVICE_PATH="/etc/systemd/system/hogen-vpn.service"
 cat > "$AUTOSTART_SERVICE_PATH" <<EOF
@@ -106,7 +118,7 @@ WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
 systemctl enable --now hogen-vpn.service
-echo "Docker stack auto-start enabled (hogen-vpn.service)."
+log_info "Docker stack auto-start enabled (hogen-vpn.service)."
 
 ROTATION_SERVICE_PATH="/etc/systemd/system/vpn-reality-cover-rotate.service"
 ROTATION_TIMER_PATH="/etc/systemd/system/vpn-reality-cover-rotate.timer"
@@ -148,7 +160,7 @@ EOF
 
   systemctl daemon-reload
   systemctl enable --now vpn-reality-cover-rotate.timer
-  echo "REALITY cover rotation enabled every ${ROTATION_INTERVAL} minutes."
+  log_ok "REALITY cover rotation enabled every ${ROTATION_INTERVAL} minutes."
 else
   ROTATION_REASON="REALITY cover rotation is disabled (XRAY_ROTATE_MINS=${ROTATION_INTERVAL})."
 fi
@@ -159,7 +171,7 @@ if [[ -n "$ROTATION_REASON" ]]; then
   fi
   rm -f "$ROTATION_SERVICE_PATH" "$ROTATION_TIMER_PATH"
   systemctl daemon-reload
-  echo "$ROTATION_REASON"
+  log_warn "$ROTATION_REASON"
 fi
 
 # --- MTProxy rotation timer ---
@@ -203,7 +215,7 @@ EOF
 
   systemctl daemon-reload
   systemctl enable --now vpn-mtg-rotate.timer
-  echo "MTProxy cover rotation enabled every ${MTG_INTERVAL} minutes."
+  log_ok "MTProxy cover rotation enabled every ${MTG_INTERVAL} minutes."
 else
   MTG_REASON="MTProxy cover rotation is disabled (MTG_ROTATE_MINS=${MTG_INTERVAL})."
 fi
@@ -214,7 +226,7 @@ if [[ -n "$MTG_REASON" ]]; then
   fi
   rm -f "$MTG_SERVICE_PATH" "$MTG_TIMER_PATH"
   systemctl daemon-reload
-  echo "$MTG_REASON"
+  log_warn "$MTG_REASON"
 fi
 
 # Install health-check timer (generates /check status page every 60 s)
@@ -253,13 +265,84 @@ systemctl daemon-reload
 systemctl enable --now vpn-health-check.timer
 # Run once immediately so /check is populated before first 60 s tick
 "${SCRIPT_DIR}/check.sh" || true
-echo "Health-check monitoring enabled (vpn-health-check.timer)."
+log_ok "Health-check monitoring enabled (vpn-health-check.timer)."
 
-echo ""
-echo "Done."
-echo "Credentials page: https://${DOMAIN}/${PAGE_TOKEN}/"
-echo "Status page (SSH): ssh user@${DOMAIN} curl -s http://127.0.0.1:9000/check/status.json"
-echo "Share the credentials URL — it is the only credential needed."
-echo ""
-echo "Container status:"
+# --- Rust toolchain (for rotate-api) -----------------------------------------
+# rotate-api is a compiled Rust binary; build it once during setup.
+CARGO_BIN="${HOME}/.cargo/bin/cargo"
+if ! command -v cargo >/dev/null 2>&1 && [[ ! -x "$CARGO_BIN" ]]; then
+  log_info "Installing Rust toolchain via rustup..."
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    | sh -s -- -y --profile minimal --no-modify-path
+  log_ok "Rust installed: $("${HOME}/.cargo/bin/rustc" --version)"
+fi
+export PATH="${HOME}/.cargo/bin:${PATH}"
+
+log_info "Building rotate-api (cargo build --release)..."
+(cd "${SCRIPT_DIR}/rotate-api" && cargo build --release --quiet)
+log_ok "rotate-api binary built."
+
+# --- Force-rotation API -------------------------------------------------------
+# rotate-api (Rust binary) listens on 127.0.0.1:9001 and runs rotation scripts on demand.
+ROTATE_API_SERVICE_PATH="/etc/systemd/system/vpn-rotate-api.service"
+cat > "$ROTATE_API_SERVICE_PATH" <<EOF
+[Unit]
+Description=hogen-vpn on-demand rotation API
+After=docker.service hogen-vpn.service
+Wants=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=${SCRIPT_DIR}
+ExecStart=${SCRIPT_DIR}/rotate-api/target/release/rotate-api
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable --now vpn-rotate-api.service
+log_ok "Force-rotation API enabled (vpn-rotate-api.service on 127.0.0.1:9001)."
+
+# --- Netdata monitoring -------------------------------------------------------
+# Install Netdata (via apt; provides a stable, distro-maintained version).
+if ! command -v netdata >/dev/null 2>&1; then
+  log_info "Installing Netdata..."
+  apt-get install -y --quiet netdata
+fi
+
+# The VPN charts.d plugin runs as the netdata user; it needs docker access.
+if getent group docker >/dev/null 2>&1 && ! id -nG netdata 2>/dev/null | grep -qw docker; then
+  usermod -aG docker netdata
+  log_info "Added netdata to docker group."
+fi
+
+# Deploy charts.d plugin and health alerts.
+NETDATA_CHARTS_DIR="${NETDATA_CHARTS_DIR:-/usr/lib/netdata/charts.d}"
+NETDATA_HEALTH_DIR="${NETDATA_HEALTH_DIR:-/etc/netdata/health.d}"
+mkdir -p "$NETDATA_CHARTS_DIR" "$NETDATA_HEALTH_DIR"
+
+install -m 755 "${SCRIPT_DIR}/netdata/vpn.chart.sh" "${NETDATA_CHARTS_DIR}/vpn.chart.sh"
+install -m 644 "${SCRIPT_DIR}/netdata/health.d/vpn.conf" "${NETDATA_HEALTH_DIR}/vpn.conf"
+
+# Write VPN_DIR so the plugin knows where to read rotation timestamps.
+mkdir -p /etc/netdata/charts.d
+cat > /etc/netdata/charts.d/vpn.conf <<EOF
+VPN_DIR=${SCRIPT_DIR}
+EOF
+
+systemctl restart netdata
+log_ok "Netdata monitoring enabled (http://localhost:19999)."
+log_info "Public dashboard: https://${DOMAIN}/net-data/  (user: admin  pass: PAGE_TOKEN)"
+log_info "View via CLI:     ./vpn-logs.sh --url"
+systemctl reload nginx
+
+log_ok ""
+log_ok "Done."
+log_ok "Credentials page: https://${DOMAIN}/${PAGE_TOKEN}/"
+log_info "Status page (SSH): ssh user@${DOMAIN} curl -s http://127.0.0.1:9000/check/status.json"
+log_info "Share the credentials URL — it is the only credential needed."
+log_info ""
+log_info "Container status:"
 docker compose -f "${SCRIPT_DIR}/docker-compose.yml" ps

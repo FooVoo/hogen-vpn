@@ -198,8 +198,28 @@
       font-size: 12px;
       color: #334155;
       margin-top: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
     .rotation-meta span { color: #475569; }
+
+    .rotate-now-btn {
+      background: none;
+      border: 1px solid #334155;
+      color: #475569;
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    .rotate-now-btn:hover:not(:disabled) { border-color: #f59e0b; color: #f59e0b; }
+    .rotate-now-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .rotate-now-btn.rn-ok  { border-color: #22c55e; color: #22c55e; }
+    .rotate-now-btn.rn-err { border-color: #ef4444; color: #ef4444; }
 
     .status-badge {
       display: inline-block;
@@ -271,7 +291,10 @@
           <code id="mtg-link">${MTG_LINK}</code>
         </div>
       </div>
-      <div class="rotation-meta">Последнее обновление: <span>${MTG_LAST_ROTATED}</span></div>
+      <div class="rotation-meta">
+        <span>Последнее обновление: ${MTG_LAST_ROTATED}</span>
+        <button class="rotate-now-btn" id="rn-mtg" data-rotate="mtg">↻ Обновить</button>
+      </div>
     </div>
 
     <!-- VLESS card -->
@@ -322,7 +345,10 @@
         <strong>Важно:</strong>
         ${XRAY_ROTATION_MESSAGE}
       </div>
-      <div class="rotation-meta">Последнее обновление: <span>${XRAY_LAST_ROTATED}</span></div>
+      <div class="rotation-meta">
+        <span>Последнее обновление: ${XRAY_LAST_ROTATED}</span>
+        <button class="rotate-now-btn" id="rn-xray" data-rotate="xray">↻ Обновить</button>
+      </div>
 
       <div class="divider"></div>
       <div class="section-label">Параметры вручную</div>

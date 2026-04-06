@@ -5,22 +5,25 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/.env"
 WEBROOT="${WEBROOT:-/var/www/vpn}"
 
-[[ -f "$ENV_FILE" ]] || { echo "ERROR: .env not found — run generate-secrets.sh first"; exit 1; }
+# shellcheck source=lib/log.sh
+source "${SCRIPT_DIR}/lib/log.sh"
+
+[[ -f "$ENV_FILE" ]] || { log_error ".env not found — run generate-secrets.sh first"; exit 1; }
 
 set -a; source "$ENV_FILE"; set +a
 
-[[ -n "${MTG_SECRET:-}" ]]       || { echo "ERROR: MTG_SECRET is missing"; exit 1; }
-[[ -n "${MTG_PORT:-}" ]]         || { echo "ERROR: MTG_PORT is missing"; exit 1; }
-[[ -n "${MTG_LINK:-}" ]]         || { echo "ERROR: MTG_LINK is missing"; exit 1; }
-[[ -n "${SERVER_IP:-}" ]]        || { echo "ERROR: SERVER_IP is missing"; exit 1; }
+[[ -n "${MTG_SECRET:-}" ]]       || { log_error "MTG_SECRET is missing"; exit 1; }
+[[ -n "${MTG_PORT:-}" ]]         || { log_error "MTG_PORT is missing"; exit 1; }
+[[ -n "${MTG_LINK:-}" ]]         || { log_error "MTG_LINK is missing"; exit 1; }
+[[ -n "${SERVER_IP:-}" ]]        || { log_error "SERVER_IP is missing"; exit 1; }
 
 MTG_COVER_DOMAINS="${MTG_COVER_DOMAINS:-${XRAY_COVER_DOMAINS:-}}"
 MTG_COVER_DOMAIN="${MTG_COVER_DOMAIN:-${XRAY_SNI:-}}"
 MTG_ROTATE_MINS="${MTG_ROTATE_MINS:-30}"
 XRAY_ROTATE_MINS="${XRAY_ROTATE_MINS:-30}"
 
-[[ -n "$MTG_COVER_DOMAINS" ]] || { echo "ERROR: MTG_COVER_DOMAINS is missing"; exit 1; }
-[[ -n "$MTG_COVER_DOMAIN" ]]  || { echo "ERROR: MTG_COVER_DOMAIN is missing"; exit 1; }
+[[ -n "$MTG_COVER_DOMAINS" ]] || { log_error "MTG_COVER_DOMAINS is missing"; exit 1; }
+[[ -n "$MTG_COVER_DOMAIN" ]]  || { log_error "MTG_COVER_DOMAIN is missing"; exit 1; }
 
 CURRENT_MTG_DOMAIN="$MTG_COVER_DOMAIN"
 IFS=',' read -r -a MTG_DOMAIN_POOL <<< "$MTG_COVER_DOMAINS"
@@ -38,7 +41,7 @@ fi
 
 MTG_SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret "$NEXT_MTG_DOMAIN")
 [[ "$MTG_SECRET" =~ ^ee[0-9a-f]{32,}$ ]] || [[ "$MTG_SECRET" =~ ^[A-Za-z0-9_-]{32,}=*$ ]] || {
-  echo "ERROR: MTProxy secret has unexpected format: '${MTG_SECRET:0:40}'"
+  log_error "MTProxy secret has unexpected format: '${MTG_SECRET:0:40}'"
   exit 1
 }
 
@@ -98,4 +101,6 @@ docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --force-recreate mtg 
 
 date '+%Y-%m-%d %H:%M %Z' > "${SCRIPT_DIR}/.last_mtg_rotation"
 
-echo "Rotated MTProxy fingerprint: ${CURRENT_MTG_DOMAIN} -> ${MTG_COVER_DOMAIN}"
+log_metric "rotations.mtg" 1 c
+
+log_ok "MTProxy fingerprint: ${CURRENT_MTG_DOMAIN} → ${MTG_COVER_DOMAIN}"

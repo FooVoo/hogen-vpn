@@ -5,27 +5,30 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/.env"
 WEBROOT="${WEBROOT:-/var/www/vpn}"
 
-[[ -f "$ENV_FILE" ]] || { echo "ERROR: .env not found — run generate-secrets.sh first"; exit 1; }
+# shellcheck source=lib/log.sh
+source "${SCRIPT_DIR}/lib/log.sh"
+
+[[ -f "$ENV_FILE" ]] || { log_error ".env not found — run generate-secrets.sh first"; exit 1; }
 
 set -a; source "$ENV_FILE"; set +a
 
-[[ -n "${XRAY_COVER_DOMAINS:-}" ]] || { echo "ERROR: XRAY_COVER_DOMAINS is missing"; exit 1; }
-[[ -n "${XRAY_UUID:-}" ]]        || { echo "ERROR: XRAY_UUID is missing"; exit 1; }
-[[ -n "${XRAY_PRIVATE_KEY:-}" ]] || { echo "ERROR: XRAY_PRIVATE_KEY is missing"; exit 1; }
-[[ -n "${XRAY_PUBLIC_KEY:-}" ]]  || { echo "ERROR: XRAY_PUBLIC_KEY is missing"; exit 1; }
-[[ -n "${XRAY_SHORT_ID:-}" ]]    || { echo "ERROR: XRAY_SHORT_ID is missing"; exit 1; }
-[[ -n "${SERVER_IP:-}" ]]        || { echo "ERROR: SERVER_IP is missing"; exit 1; }
-[[ -n "${MTG_SECRET:-}" ]]       || { echo "ERROR: MTG_SECRET is missing"; exit 1; }
-[[ -n "${MTG_PORT:-}" ]]         || { echo "ERROR: MTG_PORT is missing"; exit 1; }
-[[ -n "${MTG_LINK:-}" ]]         || { echo "ERROR: MTG_LINK is missing"; exit 1; }
-[[ -n "${SS_METHOD:-}" ]]        || { echo "ERROR: SS_METHOD is missing"; exit 1; }
-[[ -n "${SS_PORT:-}" ]]          || { echo "ERROR: SS_PORT is missing"; exit 1; }
-[[ -n "${SS_PASSWORD:-}" ]]      || { echo "ERROR: SS_PASSWORD is missing"; exit 1; }
-[[ -n "${SS_URI:-}" ]]           || { echo "ERROR: SS_URI is missing"; exit 1; }
-[[ -n "${IKE_PSK:-}" ]]          || { echo "ERROR: IKE_PSK is missing"; exit 1; }
-[[ -n "${IKE_USER:-}" ]]         || { echo "ERROR: IKE_USER is missing"; exit 1; }
-[[ -n "${IKE_PASSWORD:-}" ]]     || { echo "ERROR: IKE_PASSWORD is missing"; exit 1; }
-[[ -n "${PAGE_TOKEN:-}" ]]       || { echo "ERROR: PAGE_TOKEN is missing"; exit 1; }
+[[ -n "${XRAY_COVER_DOMAINS:-}" ]] || { log_error "XRAY_COVER_DOMAINS is missing"; exit 1; }
+[[ -n "${XRAY_UUID:-}" ]]        || { log_error "XRAY_UUID is missing"; exit 1; }
+[[ -n "${XRAY_PRIVATE_KEY:-}" ]] || { log_error "XRAY_PRIVATE_KEY is missing"; exit 1; }
+[[ -n "${XRAY_PUBLIC_KEY:-}" ]]  || { log_error "XRAY_PUBLIC_KEY is missing"; exit 1; }
+[[ -n "${XRAY_SHORT_ID:-}" ]]    || { log_error "XRAY_SHORT_ID is missing"; exit 1; }
+[[ -n "${SERVER_IP:-}" ]]        || { log_error "SERVER_IP is missing"; exit 1; }
+[[ -n "${MTG_SECRET:-}" ]]       || { log_error "MTG_SECRET is missing"; exit 1; }
+[[ -n "${MTG_PORT:-}" ]]         || { log_error "MTG_PORT is missing"; exit 1; }
+[[ -n "${MTG_LINK:-}" ]]         || { log_error "MTG_LINK is missing"; exit 1; }
+[[ -n "${SS_METHOD:-}" ]]        || { log_error "SS_METHOD is missing"; exit 1; }
+[[ -n "${SS_PORT:-}" ]]          || { log_error "SS_PORT is missing"; exit 1; }
+[[ -n "${SS_PASSWORD:-}" ]]      || { log_error "SS_PASSWORD is missing"; exit 1; }
+[[ -n "${SS_URI:-}" ]]           || { log_error "SS_URI is missing"; exit 1; }
+[[ -n "${IKE_PSK:-}" ]]          || { log_error "IKE_PSK is missing"; exit 1; }
+[[ -n "${IKE_USER:-}" ]]         || { log_error "IKE_USER is missing"; exit 1; }
+[[ -n "${IKE_PASSWORD:-}" ]]     || { log_error "IKE_PASSWORD is missing"; exit 1; }
+[[ -n "${PAGE_TOKEN:-}" ]]       || { log_error "PAGE_TOKEN is missing"; exit 1; }
 XRAY_ROTATE_MINS="${XRAY_ROTATE_MINS:-30}"
 MTG_ROTATE_MINS="${MTG_ROTATE_MINS:-30}"
 
@@ -42,7 +45,7 @@ for COVER_DOMAIN in "${COVER_DOMAIN_POOL[@]}"; do
 done
 
 if (( ${#ROTATABLE_DOMAINS[@]} < 2 )); then
-  echo "ERROR: need at least two cover domains to rotate"
+  log_error "need at least two cover domains to rotate"
   exit 1
 fi
 
@@ -85,11 +88,11 @@ for CANDIDATE in "${SHUFFLED[@]}"; do
 done
 
 if [[ -n "${FAILED_DOMAINS[*]:-}" ]]; then
-  echo "WARNING: TLS check failed for: ${FAILED_DOMAINS[*]}"
+  log_warn "TLS check failed for: ${FAILED_DOMAINS[*]}"
 fi
 
 if [[ -z "$NEXT_DOMAIN" ]]; then
-  echo "ERROR: no reachable cover domain found — keeping current domain ${CURRENT_DOMAIN}"
+  log_error "no reachable cover domain found — keeping current domain ${CURRENT_DOMAIN}"
   exit 1
 fi
 
@@ -119,7 +122,7 @@ else
 fi
 MTG_SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret "$NEXT_MTG_DOMAIN")
 [[ "$MTG_SECRET" =~ ^ee[0-9a-f]{32,}$ ]] || [[ "$MTG_SECRET" =~ ^[A-Za-z0-9_-]{32,}=*$ ]] || {
-  echo "ERROR: MTProxy secret has unexpected format: '${MTG_SECRET:0:40}'"
+  log_error "MTProxy secret has unexpected format: '${MTG_SECRET:0:40}'"
   exit 1
 }
 MTG_COVER_DOMAIN="$NEXT_MTG_DOMAIN"
@@ -179,5 +182,9 @@ docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --force-recreate xray
 date '+%Y-%m-%d %H:%M %Z' > "${SCRIPT_DIR}/.last_xray_rotation"
 date '+%Y-%m-%d %H:%M %Z' > "${SCRIPT_DIR}/.last_mtg_rotation"
 
-echo "Rotated REALITY cover domain: ${CURRENT_DOMAIN} -> ${XRAY_SNI}"
-echo "Rotated MTProxy fingerprint:  ${CURRENT_MTG_DOMAIN} -> ${MTG_COVER_DOMAIN}"
+# Increment rotation counters in Netdata StatsD.
+log_metric "rotations.xray" 1 c
+log_metric "rotations.mtg"  1 c
+
+log_ok "REALITY cover domain: ${CURRENT_DOMAIN} → ${XRAY_SNI}"
+log_ok "MTProxy fingerprint:  ${CURRENT_MTG_DOMAIN} → ${MTG_COVER_DOMAIN}"

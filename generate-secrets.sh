@@ -99,7 +99,7 @@ if [[ -z "$XRAY_SNI" || -z "$XRAY_PRIVATE_KEY" || -z "$XRAY_PUBLIC_KEY" ]]; then
   exit 1
 fi
 XRAY_COVER_DOMAINS=$(IFS=,; echo "${COVER_DOMAINS[*]}")
-XRAY_ROTATE_MINS=30
+XRAY_ROTATE_MINS=120
 XRAY_DEST="${XRAY_SNI}:443"
 
 echo "Generating MTProxy secret..."
@@ -107,7 +107,7 @@ MTG_PORT=2083
 mkdir -p mtg
 MTG_COVER_DOMAIN="${COVER_DOMAINS[$RANDOM % ${#COVER_DOMAINS[@]}]}"
 MTG_COVER_DOMAINS="$XRAY_COVER_DOMAINS"
-MTG_ROTATE_MINS=30
+MTG_ROTATE_MINS=120
 MTG_SECRET=$(docker run --rm nineseconds/mtg:2 generate-secret "$MTG_COVER_DOMAIN")
 [[ "$MTG_SECRET" =~ ^ee[0-9a-f]{32,}$ ]] || [[ "$MTG_SECRET" =~ ^[A-Za-z0-9_-]{32,}=*$ ]] || {
   echo "ERROR: MTProxy secret has unexpected format: '${MTG_SECRET:0:40}'"

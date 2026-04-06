@@ -9,7 +9,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/.env"
 
-[[ -f "$ENV_FILE" ]] || { echo "ERROR: .env not found — run generate-secrets.sh first"; exit 1; }
+# shellcheck source=lib/log.sh
+source "${SCRIPT_DIR}/lib/log.sh"
+
+[[ -f "$ENV_FILE" ]] || { log_error ".env not found — run generate-secrets.sh first"; exit 1; }
 set -a; source "$ENV_FILE"; set +a
 
 WEBROOT="${CREDENTIALS_WEBROOT:-/var/www/vpn}"
@@ -136,6 +139,14 @@ CHECK_XRAY_CTR=${XRAY_CTR}
 CHECK_IPSEC_CTR=${IPSEC_CTR}
 ENV
 chmod 600 "${SCRIPT_DIR}/.check_env"
+
+# Push overall status to Netdata StatsD (1 = ok, 0 = degraded).
+# This supplements the charts.d plugin with an app-level health gauge.
+_ok() { [[ "$1" == "up" ]] && echo 1 || echo 0; }
+log_metric "overall"  "$( [[ "$OVERALL" == "ok" ]] && echo 1 || echo 0 )"
+log_metric "port.mtg"   "$(_ok "$MTG_TCP")"
+log_metric "port.xray"  "$(_ok "$XRAY_TCP")"
+log_metric "port.ss"    "$(_ok "$SS_TCP")"
 
 # Re-render the credentials page so the embedded status card stays fresh.
 "${SCRIPT_DIR}/render-credentials-page.sh" "$WEBROOT" || true

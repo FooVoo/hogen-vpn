@@ -23,6 +23,45 @@ server {
         add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
     }
 
+    # Force-rotation API — POST to trigger, GET to poll status.
+    # Security: path contains PAGE_TOKEN (same level as credentials page URL).
+    location = /${PAGE_TOKEN}/rotate/xray {
+        limit_except GET POST { deny all; }
+        proxy_pass http://127.0.0.1:9001/rotate/xray;
+        proxy_read_timeout 180s;
+    }
+
+    location = /${PAGE_TOKEN}/rotate/mtg {
+        limit_except GET POST { deny all; }
+        proxy_pass http://127.0.0.1:9001/rotate/mtg;
+        proxy_read_timeout 180s;
+    }
+
+    # Netdata monitoring dashboard — password-protected reverse proxy.
+    # Credentials: username "admin", password = PAGE_TOKEN (set in .env).
+    location = /net-data {
+        return 301 /net-data/;
+    }
+
+    location ~ ^/net-data/(?<ndpath>.*)$ {
+        auth_basic "VPN Monitoring";
+        auth_basic_user_file /etc/nginx/.htpasswd-netdata;
+
+        proxy_redirect   off;
+        proxy_set_header Host                $host;
+        proxy_set_header X-Forwarded-Host    $host;
+        proxy_set_header X-Forwarded-Server  $host;
+        proxy_set_header X-Forwarded-For     $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto   $scheme;
+
+        # WebSocket support (Netdata live charts)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade             $http_upgrade;
+        proxy_set_header Connection          $connection_upgrade;
+
+        proxy_pass http://127.0.0.1:19999/$ndpath$is_args$args;
+    }
+
     # Drop everything else — no HTTP response, connection closed immediately
     location / {
         return 444;
