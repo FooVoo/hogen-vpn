@@ -73,7 +73,7 @@ if [[ "$UPDATE_CONFIG" == true ]]; then
   _p=$(_lk WG_PORT);      WG_PORT="${_p:-51820}"
   _c=$(_lk WG_CLIENT_IP); WG_CLIENT_IP="${_c:-10.13.13.2}"
   WG_SERVER_PRIVATE=$(grep -E '^\s*PrivateKey\s*=' "${SCRIPT_DIR}/wireguard/wg0.conf" 2>/dev/null \
-    | head -1 | sed 's/.*=[[:space:]]*//')
+    | head -1 | sed 's/^[^=]*=[[:space:]]*//')
   [[ -n "$WG_SERVER_PRIVATE" && -n "$WG_CLIENT_PRIVATE" && -n "$WG_PSK" ]] || {
     log_error "Existing keys not found. Run ./setup-wireguard.sh first."
     exit 1
@@ -178,10 +178,24 @@ env_write WG_PSK                 "$WG_PSK"
 env_write WG_CLIENT_IP           "$WG_CLIENT_IP"
 
 if [[ "$UPDATE_CONFIG" == true ]]; then
-  log_ok "WireGuard configs updated (keys unchanged). Restart container to apply:"
-  log_ok "  docker compose up -d --force-recreate wireguard"
+  log_ok "WireGuard configs updated (keys unchanged)."
+  if command -v docker >/dev/null 2>&1; then
+    log_info "Restarting WireGuard container to apply changes..."
+    docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --force-recreate wireguard
+    log_ok "WireGuard container restarted."
+  else
+    log_warn "docker not found — restart manually: docker compose up -d --force-recreate wireguard"
+  fi
 else
   log_ok "WireGuard configured (client IP: ${WG_CLIENT_IP}, port: ${WG_PORT})"
   [[ "$FORCE" == true ]] && \
     log_warn "Keys were regenerated — re-download the client config from the credentials page."
+fi
+
+# Re-render credentials page so new/updated configs are immediately available.
+RENDER_SCRIPT="${SCRIPT_DIR}/render-credentials-page.sh"
+if [[ -f "$RENDER_SCRIPT" ]]; then
+  log_info "Re-rendering credentials page..."
+  "$RENDER_SCRIPT" && log_ok "Credentials page updated." \
+    || log_warn "Credentials page render failed — run ./render-credentials-page.sh manually."
 fi
