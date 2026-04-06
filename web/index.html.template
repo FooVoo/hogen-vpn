@@ -577,7 +577,7 @@
         <code id="wg-client-config" style="white-space:pre;font-size:11px;">[Interface]
 PrivateKey = ${WG_CLIENT_PRIVATE_KEY}
 Address    = ${WG_CLIENT_IP}/24
-DNS        = 1.1.1.1, 8.8.8.8
+DNS        = 10.13.13.1
 MTU        = 1420
 
 [Peer]
@@ -610,8 +610,8 @@ PersistentKeepalive = 25</code>
         </div>
         <div class="field">
           <label>DNS</label>
-          <code>1.1.1.1, 8.8.8.8</code>
-          <button class="copy-btn" data-copy="1.1.1.1">Копировать</button>
+          <code>10.13.13.1</code>
+          <button class="copy-btn" data-copy="10.13.13.1">Копировать</button>
         </div>
         <div class="field">
           <label>Public Key</label>

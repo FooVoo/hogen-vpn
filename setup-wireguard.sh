@@ -99,8 +99,8 @@ Address      = 10.13.13.1/24
 ListenPort   = ${WG_PORT}
 MTU          = 1420
 SaveConfig   = false
-PostUp       = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-PreDown      = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+PostUp       = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE; iptables -t nat -A PREROUTING -i %i -p udp --dport 53 -j DNAT --to 1.1.1.1; iptables -t nat -A PREROUTING -i %i -p tcp --dport 53 -j DNAT --to 1.1.1.1
+PreDown      = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE; iptables -t nat -D PREROUTING -i %i -p udp --dport 53 -j DNAT --to 1.1.1.1; iptables -t nat -D PREROUTING -i %i -p tcp --dport 53 -j DNAT --to 1.1.1.1
 
 [Peer]
 # peer1
@@ -117,7 +117,7 @@ cat > "${SCRIPT_DIR}/wireguard/peer1.conf" <<EOF
 [Interface]
 PrivateKey = ${WG_CLIENT_PRIVATE}
 Address    = ${WG_CLIENT_IP}/24
-DNS        = 1.1.1.1, 8.8.8.8
+DNS        = 10.13.13.1
 MTU        = 1420
 
 [Peer]
