@@ -164,11 +164,13 @@ rm -rf wireguard/wg0.conf
 mkdir -p wireguard
 cat > wireguard/wg0.conf <<EOF
 [Interface]
-PrivateKey = ${WG_SERVER_PRIVATE}
-Address = 10.13.13.1/24
-ListenPort = ${WG_PORT}
-PostUp   = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -s 10.13.13.0/24 -j MASQUERADE
-PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -s 10.13.13.0/24 -j MASQUERADE
+PrivateKey   = ${WG_SERVER_PRIVATE}
+Address      = 10.13.13.1/24
+ListenPort   = ${WG_PORT}
+MTU          = 1420
+SaveConfig   = false
+PostUp       = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PreDown      = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 
 [Peer]
 # peer1
@@ -185,6 +187,7 @@ cat > wireguard/peer1.conf <<EOF
 PrivateKey = ${WG_CLIENT_PRIVATE}
 Address    = ${WG_CLIENT_IP}/24
 DNS        = 1.1.1.1, 8.8.8.8
+MTU        = 1420
 
 [Peer]
 PublicKey           = ${WG_SERVER_PUBLIC}

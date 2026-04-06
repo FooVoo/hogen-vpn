@@ -79,6 +79,7 @@ if [[ -n "${WG_CLIENT_PRIVATE_KEY:-}" && -n "${WG_SERVER_PUBLIC_KEY:-}" ]]; then
 PrivateKey = ${WG_CLIENT_PRIVATE_KEY}
 Address    = ${WG_CLIENT_IP:-10.13.13.2}/24
 DNS        = 1.1.1.1, 8.8.8.8
+MTU        = 1420
 
 [Peer]
 PublicKey           = ${WG_SERVER_PUBLIC_KEY}
