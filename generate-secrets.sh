@@ -157,7 +157,10 @@ WG_PSK=$(printf '%s' "$WG_KEYS" | sed -n '5p')
   exit 1
 }
 
-# Write WireGuard server config (mounted read-only into the container)
+# Write WireGuard server config (mounted read-only into the container).
+# Docker Compose creates missing bind-mount paths as directories; remove any
+# such stale directory before writing the file.
+rm -rf wireguard/wg0.conf
 mkdir -p wireguard
 cat > wireguard/wg0.conf <<EOF
 [Interface]
@@ -176,6 +179,7 @@ EOF
 chmod 600 wireguard/wg0.conf
 
 # Write client config (for credential distribution; includes private key)
+rm -rf wireguard/peer1.conf
 cat > wireguard/peer1.conf <<EOF
 [Interface]
 PrivateKey = ${WG_CLIENT_PRIVATE}
