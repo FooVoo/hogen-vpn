@@ -16,8 +16,8 @@ SSH_OPTS=(-i "$DEPLOY_KEY" -o StrictHostKeyChecking=yes)
 
 rsync -az --delete -e "ssh ${SSH_OPTS[*]}" \
   --exclude='.env' \
-  --exclude='mtg/config.toml' \
-  --exclude='xray/config.json' \
+  --exclude='mtg/' \
+  --exclude='xray/' \
   --exclude='ipsec/' \
   --exclude='wireguard/' \
   --exclude='web/index.html' \
