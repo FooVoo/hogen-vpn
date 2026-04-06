@@ -2,7 +2,7 @@
 # setup-wireguard.sh — generate WireGuard credentials and write server/client configs.
 #
 # Writes:
-#   wireguard/wg0.conf      — WireGuard server config (mounted :ro into the container)
+#   wireguard/wg0.conf      — WireGuard server config (mounted into the container)
 #   wireguard/peer1.conf    — WireGuard client config (distributed via credentials page)
 #   .env                    — WG_PORT, WG_SERVER_PUBLIC_KEY, WG_CLIENT_PRIVATE_KEY,
 #                             WG_CLIENT_PUBLIC_KEY, WG_PSK, WG_CLIENT_IP
@@ -10,11 +10,14 @@
 # Usage:
 #   ./setup-wireguard.sh <SERVER_IP>
 #   ./setup-wireguard.sh                    # reads SERVER_IP from existing .env
-#   ./setup-wireguard.sh --force            # regenerate even if already configured
+#   ./setup-wireguard.sh --update-config    # rewrite configs from existing keys (no keygen)
+#   ./setup-wireguard.sh --force            # regenerate ALL keys + configs (new client config needed)
 #   ./setup-wireguard.sh --server-ip=1.2.3.4
 #
-# After running this script (or regenerating with --force), restart the wireguard
-# container so it picks up the new config:
+# Use --update-config to apply PostUp/DNS template changes without invalidating
+# existing client configs. Use --force only when keys must change (key compromise).
+#
+# After either flag, restart the container:
 #   docker compose up -d --force-recreate wireguard
 set -euo pipefail
 
@@ -25,12 +28,14 @@ source "${SCRIPT_DIR}/lib/log.sh"
 source "${SCRIPT_DIR}/lib/env.sh"
 
 FORCE=false
+UPDATE_CONFIG=false
 SERVER_IP=""
 
 for arg in "$@"; do
   case "$arg" in
-    --force)        FORCE=true ;;
-    --server-ip=*)  SERVER_IP="${arg#--server-ip=}" ;;
+    --force)          FORCE=true ;;
+    --update-config)  UPDATE_CONFIG=true ;;
+    --server-ip=*)    SERVER_IP="${arg#--server-ip=}" ;;
     -*)  log_error "Unknown option: $arg"; exit 1 ;;
     *)
       [[ -z "$SERVER_IP" ]] && SERVER_IP="$arg"
@@ -48,47 +53,78 @@ fi
   exit 1
 }
 
-# Skip if already configured (unless --force)
-if [[ "$FORCE" == false ]] && [[ -f "${SCRIPT_DIR}/.env" ]] \
-    && grep -qE '^WG_SERVER_PUBLIC_KEY=' "${SCRIPT_DIR}/.env"; then
-  log_info "WireGuard already configured. Use --force to regenerate."
-  exit 0
-fi
-
-command -v docker >/dev/null 2>&1 || { log_error "docker is not installed"; exit 1; }
-
-# ── WireGuard key generation ──────────────────────────────────────────────────
-
-log_info "Generating WireGuard credentials..."
-
 WG_PORT=51820
 WG_CLIENT_IP="10.13.13.2"
 
-# All keys generated in a single Docker call — alpine + wireguard-tools.
-# Output lines: server_priv, server_pub, client_priv, client_pub, psk
-WG_KEYS=$(docker run --rm alpine:3 sh -c \
-  "apk add -q wireguard-tools 2>/dev/null; \
-   srv_priv=\$(wg genkey); \
-   srv_pub=\$(printf '%s' \"\$srv_priv\" | wg pubkey); \
-   cli_priv=\$(wg genkey); \
-   cli_pub=\$(printf '%s' \"\$cli_priv\" | wg pubkey); \
-   psk=\$(wg genpsk); \
-   printf '%s\n%s\n%s\n%s\n%s\n' \"\$srv_priv\" \"\$srv_pub\" \"\$cli_priv\" \"\$cli_pub\" \"\$psk\"")
+# ── Determine operating mode ──────────────────────────────────────────────────
 
-WG_SERVER_PRIVATE=$(printf '%s' "$WG_KEYS" | sed -n '1p')
-WG_SERVER_PUBLIC=$(printf '%s'  "$WG_KEYS" | sed -n '2p')
-WG_CLIENT_PRIVATE=$(printf '%s' "$WG_KEYS" | sed -n '3p')
-WG_CLIENT_PUBLIC=$(printf '%s'  "$WG_KEYS" | sed -n '4p')
-WG_PSK=$(printf '%s'            "$WG_KEYS" | sed -n '5p')
+if [[ "$UPDATE_CONFIG" == true ]]; then
+  # --update-config: rewrite wg0.conf + peer1.conf from existing keys.
+  # Server private key is intentionally not stored in .env; read from wg0.conf.
+  [[ -f "${SCRIPT_DIR}/.env" ]] || {
+    log_error "--update-config requires existing keys in .env. Run without flags first."
+    exit 1
+  }
+  _lk() { grep -E "^${1}=" "${SCRIPT_DIR}/.env" | head -1 | cut -d= -f2- | tr -d '"'; }
+  WG_SERVER_PUBLIC=$(_lk WG_SERVER_PUBLIC_KEY)
+  WG_CLIENT_PRIVATE=$(_lk WG_CLIENT_PRIVATE_KEY)
+  WG_CLIENT_PUBLIC=$(_lk WG_CLIENT_PUBLIC_KEY)
+  WG_PSK=$(_lk WG_PSK)
+  _p=$(_lk WG_PORT);      WG_PORT="${_p:-51820}"
+  _c=$(_lk WG_CLIENT_IP); WG_CLIENT_IP="${_c:-10.13.13.2}"
+  WG_SERVER_PRIVATE=$(grep -E '^\s*PrivateKey\s*=' "${SCRIPT_DIR}/wireguard/wg0.conf" 2>/dev/null \
+    | head -1 | sed 's/.*=[[:space:]]*//')
+  [[ -n "$WG_SERVER_PRIVATE" && -n "$WG_CLIENT_PRIVATE" && -n "$WG_PSK" ]] || {
+    log_error "Existing keys not found. Run ./setup-wireguard.sh first."
+    exit 1
+  }
+  log_info "Updating WireGuard configs from existing keys (no key regeneration)..."
 
-[[ -n "$WG_SERVER_PRIVATE" && -n "$WG_CLIENT_PRIVATE" && -n "$WG_PSK" ]] || {
-  log_error "Failed to generate WireGuard credentials"
-  exit 1
-}
+elif [[ "$FORCE" == false ]] && [[ -f "${SCRIPT_DIR}/.env" ]] \
+    && grep -qE '^WG_SERVER_PUBLIC_KEY=' "${SCRIPT_DIR}/.env"; then
+  log_info "WireGuard already configured. Use --update-config to refresh configs or --force to regenerate keys."
+  exit 0
+
+else
+  # Fresh install or --force: generate new keys.
+  command -v docker >/dev/null 2>&1 || { log_error "docker is not installed"; exit 1; }
+  log_info "Generating WireGuard credentials..."
+
+  # All keys generated in a single Docker call — alpine + wireguard-tools.
+  # Output lines: server_priv, server_pub, client_priv, client_pub, psk
+  WG_KEYS=$(docker run --rm alpine:3 sh -c \
+    "apk add -q wireguard-tools 2>/dev/null; \
+     srv_priv=\$(wg genkey); \
+     srv_pub=\$(printf '%s' \"\$srv_priv\" | wg pubkey); \
+     cli_priv=\$(wg genkey); \
+     cli_pub=\$(printf '%s' \"\$cli_priv\" | wg pubkey); \
+     psk=\$(wg genpsk); \
+     printf '%s\n%s\n%s\n%s\n%s\n' \"\$srv_priv\" \"\$srv_pub\" \"\$cli_priv\" \"\$cli_pub\" \"\$psk\"")
+
+  WG_SERVER_PRIVATE=$(printf '%s' "$WG_KEYS" | sed -n '1p')
+  WG_SERVER_PUBLIC=$(printf '%s'  "$WG_KEYS" | sed -n '2p')
+  WG_CLIENT_PRIVATE=$(printf '%s' "$WG_KEYS" | sed -n '3p')
+  WG_CLIENT_PUBLIC=$(printf '%s'  "$WG_KEYS" | sed -n '4p')
+  WG_PSK=$(printf '%s'            "$WG_KEYS" | sed -n '5p')
+
+  [[ -n "$WG_SERVER_PRIVATE" && -n "$WG_CLIENT_PRIVATE" && -n "$WG_PSK" ]] || {
+    log_error "Failed to generate WireGuard credentials"
+    exit 1
+  }
+fi
 
 # ── Write server config ───────────────────────────────────────────────────────
 # Docker Compose creates missing bind-mount sources as directories; remove any
 # such stale directory before writing the file.
+#
+# PostUp/PreDown notes:
+#   - FORWARD rules allow traffic from/to wg0 to be routed through the container.
+#   - MASQUERADE on eth0 NATs VPN client traffic for internet access.
+#   - PREROUTING DNAT intercepts DNS (port 53) from wg0 and redirects to 1.1.1.1
+#     so the client can use 10.13.13.1 as its DNS (always reachable via the tunnel).
+#   - "; true" at the end ensures wg-quick always exits 0 even if some iptables
+#     commands fail (e.g. iptable_nat module not yet loaded), preventing a
+#     container restart loop that would break handshakes.
 
 mkdir -p "${SCRIPT_DIR}/wireguard"
 rm -rf "${SCRIPT_DIR}/wireguard/wg0.conf"
@@ -99,8 +135,8 @@ Address      = 10.13.13.1/24
 ListenPort   = ${WG_PORT}
 MTU          = 1420
 SaveConfig   = false
-PostUp       = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE; iptables -t nat -A PREROUTING -i %i -p udp --dport 53 -j DNAT --to 1.1.1.1; iptables -t nat -A PREROUTING -i %i -p tcp --dport 53 -j DNAT --to 1.1.1.1
-PreDown      = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE; iptables -t nat -D PREROUTING -i %i -p udp --dport 53 -j DNAT --to 1.1.1.1; iptables -t nat -D PREROUTING -i %i -p tcp --dport 53 -j DNAT --to 1.1.1.1
+PostUp       = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE; iptables -t nat -A PREROUTING -i %i -p udp --dport 53 -j DNAT --to 1.1.1.1; iptables -t nat -A PREROUTING -i %i -p tcp --dport 53 -j DNAT --to 1.1.1.1; true
+PreDown      = iptables -D FORWARD -i %i -j ACCEPT 2>/dev/null; iptables -D FORWARD -o %i -j ACCEPT 2>/dev/null; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE 2>/dev/null; iptables -t nat -D PREROUTING -i %i -p udp --dport 53 -j DNAT --to 1.1.1.1 2>/dev/null; iptables -t nat -D PREROUTING -i %i -p tcp --dport 53 -j DNAT --to 1.1.1.1 2>/dev/null; true
 
 [Peer]
 # peer1
@@ -130,6 +166,8 @@ EOF
 chmod 600 "${SCRIPT_DIR}/wireguard/peer1.conf"
 
 # ── Write to .env ─────────────────────────────────────────────────────────────
+# Only writes keys for fresh install / --force. --update-config re-writes the
+# same values (harmless), keeping .env consistent.
 
 env_write SERVER_IP              "$SERVER_IP"
 env_write WG_PORT                "$WG_PORT"
@@ -139,4 +177,11 @@ env_write WG_CLIENT_PUBLIC_KEY   "$WG_CLIENT_PUBLIC"
 env_write WG_PSK                 "$WG_PSK"
 env_write WG_CLIENT_IP           "$WG_CLIENT_IP"
 
-log_ok "WireGuard configured (client IP: ${WG_CLIENT_IP}, port: ${WG_PORT})"
+if [[ "$UPDATE_CONFIG" == true ]]; then
+  log_ok "WireGuard configs updated (keys unchanged). Restart container to apply:"
+  log_ok "  docker compose up -d --force-recreate wireguard"
+else
+  log_ok "WireGuard configured (client IP: ${WG_CLIENT_IP}, port: ${WG_PORT})"
+  [[ "$FORCE" == true ]] && \
+    log_warn "Keys were regenerated — re-download the client config from the credentials page."
+fi
