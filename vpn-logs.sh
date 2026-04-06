@@ -175,7 +175,7 @@ _run_journal() {
     "vpn-mtg-rotate.service"
     "hogen-vpn.service"
   )
-  local DOCKER_SERVICES=(mtg xray ipsec)
+  local DOCKER_SERVICES=(mtg xray ipsec wireguard)
   local COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.yml"
 
   _unit_flags() {

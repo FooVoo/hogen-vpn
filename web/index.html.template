@@ -538,6 +538,102 @@
       </div>
     </div>
 
+    <!-- WireGuard card -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">WireGuard</span>
+        <span class="card-subtitle">быстрый, современный VPN — нужно приложение</span>
+      </div>
+
+      <div class="qr-row">
+        <div id="wg-qr-canvas"></div>
+        <div class="qr-hint">
+          <strong>Сканируй QR-код или скачай конфиг:</strong>
+          <div class="app-row">
+            <span class="app-name">Android</span>
+            <a href="https://play.google.com/store/apps/details?id=com.wireguard.android" target="_blank">WireGuard Android</a>
+          </div>
+          <div class="app-row">
+            <span class="app-name">iPhone</span>
+            <a href="https://apps.apple.com/app/wireguard/id1441195209" target="_blank">WireGuard iOS</a>
+          </div>
+          <div class="app-row">
+            <span class="app-name">Windows</span>
+            <a href="https://www.wireguard.com/install/" target="_blank">wireguard.com</a>
+          </div>
+          <div class="app-row">
+            <span class="app-name">macOS</span>
+            <a href="https://apps.apple.com/app/wireguard/id1451685025" target="_blank">WireGuard macOS</a>
+          </div>
+          <div class="app-row">
+            <span class="app-name">Linux</span>
+            <a href="https://www.wireguard.com/install/" target="_blank">wireguard.com</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label" style="margin-top:16px;">Конфигурационный файл</div>
+      <div class="vless-uri-copy" style="margin-bottom:12px;">
+        <code id="wg-client-config" style="white-space:pre;font-size:11px;">[Interface]
+PrivateKey = ${WG_CLIENT_PRIVATE_KEY}
+Address    = ${WG_CLIENT_IP}/24
+DNS        = 1.1.1.1, 8.8.8.8
+
+[Peer]
+PublicKey           = ${WG_SERVER_PUBLIC_KEY}
+PresharedKey        = ${WG_PSK}
+AllowedIPs          = 0.0.0.0/0, ::/0
+Endpoint            = ${SERVER_IP}:${WG_PORT}
+PersistentKeepalive = 25</code>
+        <button class="copy-btn" data-copy-from="wg-client-config">Копировать</button>
+      </div>
+      <a class="btn btn-tg" href="wg-client.conf" download="wg-client.conf" style="margin-bottom:20px;">&#8595; Скачать wg-client.conf</a>
+
+      <div class="divider"></div>
+      <div class="section-label">Параметры вручную</div>
+      <div class="fields">
+        <div class="field">
+          <label>Endpoint</label>
+          <code>${SERVER_IP}:${WG_PORT}</code>
+          <button class="copy-btn" data-copy="${SERVER_IP}:${WG_PORT}">Копировать</button>
+        </div>
+        <div class="field">
+          <label>Порт</label>
+          <code>${WG_PORT}</code>
+          <button class="copy-btn" data-copy="${WG_PORT}">Копировать</button>
+        </div>
+        <div class="field">
+          <label>Свой IP</label>
+          <code>${WG_CLIENT_IP}/24</code>
+          <button class="copy-btn" data-copy="${WG_CLIENT_IP}/24">Копировать</button>
+        </div>
+        <div class="field">
+          <label>DNS</label>
+          <code>1.1.1.1, 8.8.8.8</code>
+          <button class="copy-btn" data-copy="1.1.1.1">Копировать</button>
+        </div>
+        <div class="field">
+          <label>Public Key</label>
+          <code>${WG_SERVER_PUBLIC_KEY}</code>
+          <button class="copy-btn" data-copy="${WG_SERVER_PUBLIC_KEY}">Копировать</button>
+        </div>
+        <div class="field">
+          <label>PSK</label>
+          <code>${WG_PSK}</code>
+          <button class="copy-btn" data-copy="${WG_PSK}">Копировать</button>
+        </div>
+        <div class="field">
+          <label>Приватный ключ</label>
+          <code>${WG_CLIENT_PRIVATE_KEY}</code>
+          <button class="copy-btn" data-copy="${WG_CLIENT_PRIVATE_KEY}">Копировать</button>
+        </div>
+        <div class="field">
+          <label>AllowedIPs</label>
+          <code>0.0.0.0/0, ::/0</code>
+        </div>
+      </div>
+    </div>
+
     <!-- Status card -->
     <div class="card">
       <div class="card-header">
@@ -552,6 +648,7 @@
         <div class="status-row"><span>Xray     container</span>${CHECK_XRAY_CTR_HTML}</div>
         <div class="status-row"><span>Shadowsocks  tcp:8388</span>${CHECK_SS_TCP_HTML}</div>
         <div class="status-row"><span>IKEv2    container</span>${CHECK_IPSEC_CTR_HTML}</div>
+        <div class="status-row"><span>WireGuard  container</span>${CHECK_WG_CTR_HTML}</div>
       </div>
       <div class="rotation-meta">Проверено: <span>${CHECK_TIMESTAMP}</span></div>
     </div>

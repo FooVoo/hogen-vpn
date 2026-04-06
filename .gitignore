@@ -6,6 +6,8 @@
 mtg/config.toml
 xray/config.json
 ipsec/data/
+wireguard/wg0.conf
+wireguard/peer1.conf
 web/index.html
 web/.htpasswd
 rotate-api/target/

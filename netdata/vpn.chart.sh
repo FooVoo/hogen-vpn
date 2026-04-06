@@ -36,6 +36,7 @@ DIMENSION p443  'HTTPS :443'        absolute 1 1
 DIMENSION p8443 'VLESS :8443'       absolute 1 1
 DIMENSION p2083 'MTProxy :2083'     absolute 1 1
 DIMENSION p8388 'Shadowsocks :8388' absolute 1 1
+DIMENSION pwg   'WireGuard ctr'     absolute 1 1
 
 CHART vpn.rotation_age '' 'Time Since Last Rotation' 'minutes' 'rotation' vpn.rotation_age area 1001 ${vpn_update_every}
 DIMENSION xray 'Xray / VLESS' absolute 1 1
@@ -50,11 +51,19 @@ vpn_update() {
   # TCP port probes via bash built-in /dev/tcp — no external tools needed.
   _tcp_up() { timeout 2 bash -c "echo >/dev/tcp/127.0.0.1/${1}" 2>/dev/null && echo 1 || echo 0; }
 
-  local p443 p8443 p2083 p8388
+  # WireGuard uses UDP; probe container status instead of a TCP port check.
+  _ctr_up() {
+    local cid
+    cid=$(docker compose -f "${VPN_DIR}/docker-compose.yml" ps -q "$1" 2>/dev/null | head -1)
+    [[ -n "$cid" ]] && echo 1 || echo 0
+  }
+
+  local p443 p8443 p2083 p8388 pwg
   p443=$(_tcp_up 443)
   p8443=$(_tcp_up 8443)
   p2083=$(_tcp_up 2083)
   p8388=$(_tcp_up 8388)
+  pwg=$(_ctr_up wireguard)
 
   # Rotation age: seconds between recorded timestamp and now, converted to minutes.
   _age_mins() {
@@ -76,6 +85,7 @@ SET p443  = ${p443}
 SET p8443 = ${p8443}
 SET p2083 = ${p2083}
 SET p8388 = ${p8388}
+SET pwg   = ${pwg}
 END
 
 BEGIN vpn.rotation_age ${_t}

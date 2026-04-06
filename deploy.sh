@@ -19,6 +19,7 @@ rsync -az --delete -e "ssh ${SSH_OPTS[*]}" \
   --exclude='mtg/config.toml' \
   --exclude='xray/config.json' \
   --exclude='ipsec/' \
+  --exclude='wireguard/' \
   --exclude='web/index.html' \
   --exclude='web/.htpasswd' \
   ./ "${DEPLOY_HOST}:${DEPLOY_REMOTE_DIR}/"

@@ -24,6 +24,7 @@ echo "Pulling images..."
 docker pull --quiet nineseconds/mtg:2 >/dev/null
 docker pull --quiet ghcr.io/xtls/xray-core:26.3.27 >/dev/null
 docker pull --quiet hwdsl2/ipsec-vpn-server:latest >/dev/null
+docker pull --quiet lscr.io/linuxserver/wireguard:latest >/dev/null
 
 echo "Generating VLESS credentials..."
 if [[ -f /proc/sys/kernel/random/uuid ]]; then
@@ -134,6 +135,62 @@ IKE_PSK=$(openssl rand -base64 24 | tr -d '\n')
 IKE_USER="vpn$(openssl rand -hex 4)"
 IKE_PASSWORD=$(openssl rand -hex 8)
 
+echo "Generating WireGuard credentials..."
+WG_PORT=51820
+WG_CLIENT_IP="10.13.13.2"
+# All key generation in a single container call — alpine + wireguard-tools
+WG_KEYS=$(docker run --rm alpine:3 sh -c \
+  "apk add -q wireguard-tools 2>/dev/null; \
+   srv_priv=\$(wg genkey); \
+   srv_pub=\$(printf '%s' \"\$srv_priv\" | wg pubkey); \
+   cli_priv=\$(wg genkey); \
+   cli_pub=\$(printf '%s' \"\$cli_priv\" | wg pubkey); \
+   psk=\$(wg genpsk); \
+   printf '%s\n%s\n%s\n%s\n%s\n' \"\$srv_priv\" \"\$srv_pub\" \"\$cli_priv\" \"\$cli_pub\" \"\$psk\"")
+WG_SERVER_PRIVATE=$(printf '%s' "$WG_KEYS" | sed -n '1p')
+WG_SERVER_PUBLIC=$(printf '%s' "$WG_KEYS" | sed -n '2p')
+WG_CLIENT_PRIVATE=$(printf '%s' "$WG_KEYS" | sed -n '3p')
+WG_CLIENT_PUBLIC=$(printf '%s' "$WG_KEYS" | sed -n '4p')
+WG_PSK=$(printf '%s' "$WG_KEYS" | sed -n '5p')
+[[ -n "$WG_SERVER_PRIVATE" && -n "$WG_CLIENT_PRIVATE" && -n "$WG_PSK" ]] || {
+  echo "ERROR: failed to generate WireGuard credentials"
+  exit 1
+}
+
+# Write WireGuard server config (mounted read-only into the container)
+mkdir -p wireguard
+cat > wireguard/wg0.conf <<EOF
+[Interface]
+PrivateKey = ${WG_SERVER_PRIVATE}
+Address = 10.13.13.1/24
+ListenPort = ${WG_PORT}
+PostUp   = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -s 10.13.13.0/24 -j MASQUERADE
+PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -s 10.13.13.0/24 -j MASQUERADE
+
+[Peer]
+# peer1
+PublicKey    = ${WG_CLIENT_PUBLIC}
+PresharedKey = ${WG_PSK}
+AllowedIPs   = ${WG_CLIENT_IP}/32
+EOF
+chmod 600 wireguard/wg0.conf
+
+# Write client config (for credential distribution; includes private key)
+cat > wireguard/peer1.conf <<EOF
+[Interface]
+PrivateKey = ${WG_CLIENT_PRIVATE}
+Address    = ${WG_CLIENT_IP}/24
+DNS        = 1.1.1.1, 8.8.8.8
+
+[Peer]
+PublicKey           = ${WG_SERVER_PUBLIC}
+PresharedKey        = ${WG_PSK}
+AllowedIPs          = 0.0.0.0/0, ::/0
+Endpoint            = ${SERVER_IP}:${WG_PORT}
+PersistentKeepalive = 25
+EOF
+chmod 600 wireguard/peer1.conf
+
 # Composite connection strings
 MTG_LINK="https://t.me/proxy?server=${SERVER_IP}&port=${MTG_PORT}&secret=${MTG_SECRET}"
 VLESS_URI="vless://${XRAY_UUID}@${SERVER_IP}:8443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${XRAY_SNI}&fp=chrome&pbk=${XRAY_PUBLIC_KEY}&sid=${XRAY_SHORT_ID}&type=tcp#VPN"
@@ -168,6 +225,13 @@ IKE_PSK="${IKE_PSK}"
 IKE_USER=${IKE_USER}
 IKE_PASSWORD=${IKE_PASSWORD}
 
+WG_PORT=${WG_PORT}
+WG_SERVER_PUBLIC_KEY=${WG_SERVER_PUBLIC}
+WG_CLIENT_PRIVATE_KEY=${WG_CLIENT_PRIVATE}
+WG_CLIENT_PUBLIC_KEY=${WG_CLIENT_PUBLIC}
+WG_PSK=${WG_PSK}
+WG_CLIENT_IP=${WG_CLIENT_IP}
+
 PAGE_TOKEN=${PAGE_TOKEN}
 
 # Domain for the nginx credentials page (required by setup-nginx.sh)
@@ -184,11 +248,14 @@ echo "Done. Files written:"
 echo "  .env              — all credentials"
 echo "  mtg/config.toml   — MTProxy config"
 echo "  xray/config.json  — VLESS + Shadowsocks config"
+echo "  wireguard/wg0.conf   — WireGuard server config"
+echo "  wireguard/peer1.conf — WireGuard client config"
 echo ""
 echo "REALITY cover domain:  ${XRAY_SNI}"
 echo "MTProxy cover domain:  ${MTG_COVER_DOMAIN}"
 echo "Shadowsocks method:    ${SS_METHOD}"
 echo "IKEv2 user:            ${IKE_USER}"
+echo "WireGuard client IP:   ${WG_CLIENT_IP}"
 echo ""
 echo "Credentials page token:  ${PAGE_TOKEN}"
 echo "(Share URL: https://<CREDENTIALS_DOMAIN>/${PAGE_TOKEN}/)"

@@ -21,6 +21,7 @@
   }
   makeQR('qr-canvas',    'vless-uri');
   makeQR('ss-qr-canvas', 'ss-uri');
+  makeQR('wg-qr-canvas', 'wg-client-config');
 
   // ── Copy buttons (event delegation) ─────────────────────────────────────────
   // Buttons carry either data-copy="VALUE" or data-copy-from="ELEMENT_ID".

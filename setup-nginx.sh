@@ -41,6 +41,7 @@ ufw allow 8388/tcp comment "Shadowsocks"
 ufw allow 8388/udp comment "Shadowsocks"
 ufw allow 500/udp  comment "IKEv2"
 ufw allow 4500/udp comment "IKEv2 NAT-T"
+ufw allow 51820/udp comment "WireGuard"
 ufw --force enable
 
 # Generate HTML credentials page (written to $WEBROOT/$PAGE_TOKEN/)

@@ -83,3 +83,29 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  wireguard:
+    image: lscr.io/linuxserver/wireguard:latest
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: "Etc/UTC"
+    ports:
+      - "51820:51820/udp"
+    volumes:
+      - ./wireguard/wg0.conf:/config/wg_confs/wg0.conf:ro
+      - /lib/modules:/lib/modules:ro
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.ip_forward=1
+    healthcheck:
+      # wg show confirms the interface is up and listening; fallback to ip link
+      test: ["CMD-SHELL", "wg show wg0 2>/dev/null | grep -q 'listening port' || ip link show wg0 2>/dev/null | grep -q wg0"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

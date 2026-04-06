@@ -1,6 +1,6 @@
 # hogen-vpn
 
-Self-hosted censorship bypass stack — four protocols in one deployment.
+Self-hosted censorship bypass stack — five protocols in one deployment.
 
 | Protocol | Transport | Use case |
 |---|---|---|
@@ -8,6 +8,7 @@ Self-hosted censorship bypass stack — four protocols in one deployment.
 | **VLESS+Reality** | TCP 8443 | Full VPN for all traffic, highest stealth |
 | **Shadowsocks 2022** | TCP+UDP 8388 | Full VPN, wide client support |
 | **IKEv2/IPSec** | UDP 500+4500 | Native client on iOS, macOS, Windows |
+| **WireGuard** | UDP 51820 | Fast, modern VPN, official clients on all platforms |
 
 A password-protected HTTPS credentials page shows QR codes, connection URIs, and per-field copy buttons for every protocol.
 
@@ -16,6 +17,7 @@ A password-protected HTTPS credentials page shows QR codes, connection URIs, and
 - **MTProxy** ([mtg v2](https://github.com/9seconds/mtg)) runs in Docker, obfuscates Telegram traffic to look like HTTPS to a real domain.
 - **Xray** ([xray-core v26.3.27](https://github.com/XTLS/Xray-core)) serves two inbounds from one container: VLESS+Reality on 8443 (impersonates a real TLS site) and Shadowsocks 2022 on 8388.
 - **IKEv2** ([hwdsl2/ipsec-vpn-server](https://github.com/hwdsl2/docker-ipsec-vpn-server)) runs in Docker with `VPN_IKEV2_ONLY=yes` — accepts EAP (username/password) auth, no client app required on iOS/macOS/Windows.
+- **WireGuard** ([linuxserver/wireguard](https://github.com/linuxserver/docker-wireguard)) runs in Docker on UDP 51820. Keys and a ready-to-use client `.conf` file are generated at setup time and shown on the credentials page as a scannable QR code and a downloadable file.
 - **nginx** (host) serves a password-protected HTTPS page at your domain with all connection details.
 - **systemd timers** rotate the VLESS+Reality cover domain and the MTProxy FakeTLS fingerprint every 30 minutes, TLS-check each new candidate against a pool of 35 domains (20 international + 15 Russian), and reload the respective service automatically. After each Xray rotation users should re-import the VLESS link.
 
@@ -139,6 +141,7 @@ Set `XRAY_ROTATE_MINS=0` or `MTG_ROTATE_MINS=0` (and rerun `./setup-nginx.sh`) t
 | 8388 | TCP+UDP | Shadowsocks 2022 |
 | 500 | UDP | IKEv2/IPSec (ISAKMP) |
 | 4500 | UDP | IKEv2/IPSec (NAT-T) |
+| 51820 | UDP | WireGuard |
 
 ## Client apps
 
@@ -173,17 +176,27 @@ Import via SS URI or QR code from the credentials page.
 
 Auth type: **EAP (username + password)**. All parameters are shown on the credentials page.
 
+**WireGuard** — official clients available everywhere:
+| Platform | App |
+|---|---|
+| Android | [WireGuard Android](https://play.google.com/store/apps/details?id=com.wireguard.android) — scan QR or import `.conf` |
+| iPhone | [WireGuard iOS](https://apps.apple.com/app/wireguard/id1441195209) — scan QR or import `.conf` |
+| Windows / Linux | [wireguard.com](https://www.wireguard.com/install/) — import `.conf` file |
+| macOS | [WireGuard macOS](https://apps.apple.com/app/wireguard/id1451685025) — import `.conf` file |
+
+The credentials page shows a scannable QR code and a **Download wg-client.conf** button. Keys are pre-generated at `./generate-secrets.sh` time; no additional server-side steps required after `docker compose up -d`.
+
 ## Files
 
 ```
-generate-secrets.sh         — one-time setup: creates .env, mtg/config.toml, xray/config.json
+generate-secrets.sh         — one-time setup: creates .env, mtg/config.toml, xray/config.json, wireguard/wg0.conf, wireguard/peer1.conf
 render-xray-config.sh       — rebuilds xray/config.json from .env (VLESS + Shadowsocks inbounds)
 render-credentials-page.sh  — rebuilds the HTTPS credentials page from .env
 rotate-reality-cover.sh     — rotates VLESS cover domain, TLS-checks candidates, reloads Xray
 setup-nginx.sh              — nginx vhost, Certbot SSL, UFW rules, rotation timer install
 deploy.sh                   — rsync local files → server, re-renders configs, restarts containers
 test-rotation.sh            — 11-assertion test suite for the rotation mechanism
-docker-compose.yml          — mtg + xray + ipsec containers
+docker-compose.yml          — mtg + xray + ipsec + wireguard containers
 .env.example                — all required .env variables with descriptions
 .deploy.env.example         — local deploy overrides (DEPLOY_HOST, DEPLOY_KEY, etc.) — not synced
 web/
@@ -193,7 +206,7 @@ web/
   entrypoint.sh             — entrypoint for standalone Docker web container mode
 ```
 
-Generated files (gitignored): `.env`, `mtg/config.toml`, `xray/config.json`, `ipsec/data/`, rendered HTML.
+Generated files (gitignored): `.env`, `mtg/config.toml`, `xray/config.json`, `ipsec/data/`, `wireguard/wg0.conf`, `wireguard/peer1.conf`, rendered HTML.
 
 ## Environment variables
 
@@ -211,6 +224,11 @@ Generated files (gitignored): `.env`, `mtg/config.toml`, `xray/config.json`, `ip
 | `VLESS_URI` | Full VLESS connection URI |
 | `SS_METHOD`, `SS_PORT`, `SS_PASSWORD`, `SS_URI` | Shadowsocks 2022 credentials |
 | `IKE_PSK`, `IKE_USER`, `IKE_PASSWORD` | IKEv2 credentials |
+| `WG_PORT` | WireGuard listen port (default `51820`) |
+| `WG_SERVER_PUBLIC_KEY` | WireGuard server public key |
+| `WG_CLIENT_PRIVATE_KEY`, `WG_CLIENT_PUBLIC_KEY` | WireGuard client keypair |
+| `WG_PSK` | WireGuard pre-shared key |
+| `WG_CLIENT_IP` | Client tunnel IP (default `10.13.13.2`) |
 | `PAGE_USER`, `PAGE_PASSWORD` | Credentials page HTTP Basic Auth |
 | `CREDENTIALS_DOMAIN` | Domain for the nginx vhost (required by `setup-nginx.sh`) |
 | `CREDENTIALS_WEBROOT` | Web root path (default `/var/www/vpn`) |

@@ -42,10 +42,11 @@ XRAY_TCP=$(check_tcp 8443)
 SS_TCP=$(check_tcp 8388)
 XRAY_CTR=$(check_service xray)
 IPSEC_CTR=$(check_service ipsec)
+WG_CTR=$(check_service wireguard)
 
 # Overall: degraded if any single check fails
 OVERALL="ok"
-for s in "$MTG_TCP" "$MTG_CTR" "$XRAY_TCP" "$SS_TCP" "$XRAY_CTR" "$IPSEC_CTR"; do
+for s in "$MTG_TCP" "$MTG_CTR" "$XRAY_TCP" "$SS_TCP" "$XRAY_CTR" "$IPSEC_CTR" "$WG_CTR"; do
   [[ "$s" == "down" ]] && { OVERALL="degraded"; break; }
 done
 OVERALL_UP=$(echo "$OVERALL" | tr '[:lower:]' '[:upper:]')
@@ -101,6 +102,7 @@ $(_row "VLESS + Reality"      "tcp:8443"        "$XRAY_TCP")
 $(_row "Shadowsocks 2022"     "tcp:8388"        "$SS_TCP")
 $(_row "Xray container"       "docker compose"  "$XRAY_CTR")
 $(_row "IKEv2 / IPSec"        "docker compose"  "$IPSEC_CTR")
+$(_row "WireGuard"            "docker compose"  "$WG_CTR")
     </tbody>
   </table>
   <p class="footer">Last checked: ${TIMESTAMP} &nbsp;·&nbsp; auto-refreshes every 60 s</p>
@@ -118,7 +120,8 @@ cat > "${CHECK_DIR}/status.json" <<JSON
     "mtproxy":     { "tcp_2083": "${MTG_TCP}",  "container": "${MTG_CTR}"  },
     "vless":       { "tcp_8443": "${XRAY_TCP}", "container": "${XRAY_CTR}" },
     "shadowsocks": { "tcp_8388": "${SS_TCP}",   "container": "${XRAY_CTR}" },
-    "ikev2":       { "container": "${IPSEC_CTR}"                           }
+    "ikev2":       { "container": "${IPSEC_CTR}"                           },
+    "wireguard":   { "container": "${WG_CTR}"                              }
   }
 }
 JSON
@@ -137,6 +140,7 @@ CHECK_XRAY_TCP=${XRAY_TCP}
 CHECK_SS_TCP=${SS_TCP}
 CHECK_XRAY_CTR=${XRAY_CTR}
 CHECK_IPSEC_CTR=${IPSEC_CTR}
+CHECK_WG_CTR=${WG_CTR}
 ENV
 chmod 600 "${SCRIPT_DIR}/.check_env"
 
@@ -147,6 +151,7 @@ log_metric "overall"  "$( [[ "$OVERALL" == "ok" ]] && echo 1 || echo 0 )"
 log_metric "port.mtg"   "$(_ok "$MTG_TCP")"
 log_metric "port.xray"  "$(_ok "$XRAY_TCP")"
 log_metric "port.ss"    "$(_ok "$SS_TCP")"
+log_metric "ctr.wg"     "$(_ok "$WG_CTR")"
 
 # Re-render the credentials page so the embedded status card stays fresh.
 "${SCRIPT_DIR}/render-credentials-page.sh" "$WEBROOT" || true
