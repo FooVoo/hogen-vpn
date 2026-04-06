@@ -583,7 +583,7 @@ MTU        = 1420
 [Peer]
 PublicKey           = ${WG_SERVER_PUBLIC_KEY}
 PresharedKey        = ${WG_PSK}
-AllowedIPs          = 0.0.0.0/0, ::/0
+AllowedIPs          = 0.0.0.0/0
 Endpoint            = ${SERVER_IP}:${WG_PORT}
 PersistentKeepalive = 25</code>
         <button class="copy-btn" data-copy-from="wg-client-config">Копировать</button>
@@ -630,7 +630,7 @@ PersistentKeepalive = 25</code>
         </div>
         <div class="field">
           <label>AllowedIPs</label>
-          <code>0.0.0.0/0, ::/0</code>
+          <code>0.0.0.0/0</code>
         </div>
       </div>
     </div>

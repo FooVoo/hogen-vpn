@@ -123,7 +123,7 @@ MTU        = 1420
 [Peer]
 PublicKey           = ${WG_SERVER_PUBLIC}
 PresharedKey        = ${WG_PSK}
-AllowedIPs          = 0.0.0.0/0, ::/0
+AllowedIPs          = 0.0.0.0/0
 Endpoint            = ${SERVER_IP}:${WG_PORT}
 PersistentKeepalive = 25
 EOF

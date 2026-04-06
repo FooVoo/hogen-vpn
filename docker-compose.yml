@@ -97,7 +97,7 @@ services:
     ports:
       - "51820:51820/udp"
     volumes:
-      - ./wireguard/wg0.conf:/config/wg_confs/wg0.conf:ro
+      - ./wireguard/wg0.conf:/config/wg_confs/wg0.conf
       - /lib/modules:/lib/modules:ro
     sysctls:
       - net.ipv4.conf.all.src_valid_mark=1
