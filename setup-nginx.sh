@@ -72,16 +72,27 @@ envsubst '${WEBROOT}' \
   < "$SCRIPT_DIR/web/nginx-check-local.conf.template" \
   > /etc/nginx/conf.d/vpn-check-local.conf
 
-# Install nginx vhost (render template with env vars)
-export CREDENTIALS_DOMAIN WEBROOT
-envsubst '${CREDENTIALS_DOMAIN}${WEBROOT}${PAGE_TOKEN}' \
-  < "$SCRIPT_DIR/web/nginx-vhost.conf.template" \
-  > "$VHOST_PATH"
+# --- SSL certificate (two-phase, certbot --webroot) ---------------------------
+# Phase 1: write a minimal port-80 vhost that only serves the ACME challenge
+# path.  The full template references cert files that don't exist yet, so
+# rendering it now would fail nginx -t.
+mkdir -p "${WEBROOT}/.well-known/acme-challenge"
+cat > "$VHOST_PATH" <<MINIMAL_NGINX
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    server_tokens off;
+    location /.well-known/acme-challenge/ {
+        root ${WEBROOT};
+        try_files \$uri =404;
+    }
+    location / { return 444; }
+}
+MINIMAL_NGINX
 nginx -t
 ln -sf "$VHOST_PATH" /etc/nginx/sites-enabled/vpn
 systemctl reload nginx
 
-# Get SSL certificate (certbot will update the vhost automatically)
 # Set LETSENCRYPT_EMAIL in .env or environment to receive expiry notifications.
 if [[ -n "${LETSENCRYPT_EMAIL:-}" ]]; then
   CERTBOT_EMAIL_ARGS=(--email "$LETSENCRYPT_EMAIL" --no-eff-email)
@@ -89,8 +100,36 @@ else
   log_warn "LETSENCRYPT_EMAIL not set — certificate expiry notifications disabled"
   CERTBOT_EMAIL_ARGS=(--register-unsafely-without-email)
 fi
-certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos \
-  "${CERTBOT_EMAIL_ARGS[@]}" --redirect
+
+# certonly --webroot issues the cert without touching the nginx config, so
+# render-nginx-vhost.sh on subsequent deploys will never overwrite SSL settings.
+certbot certonly --webroot -w "${WEBROOT}" \
+  -d "$DOMAIN" --non-interactive --agree-tos "${CERTBOT_EMAIL_ARGS[@]}"
+
+# python3-certbot-nginx normally creates these files; with certonly --webroot
+# they may be absent, so create them if needed.
+if [[ ! -f /etc/letsencrypt/options-ssl-nginx.conf ]]; then
+  cat > /etc/letsencrypt/options-ssl-nginx.conf <<'SSL_OPTS'
+ssl_session_cache shared:le_nginx_SSL:10m;
+ssl_session_timeout 1440m;
+ssl_session_tickets off;
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_prefer_server_ciphers off;
+ssl_ciphers "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256";
+SSL_OPTS
+fi
+if [[ ! -f /etc/letsencrypt/ssl-dhparams.pem ]]; then
+  log_info "Generating DH parameters (may take up to 30 s)..."
+  openssl dhparam -out /etc/letsencrypt/ssl-dhparams.pem 2048
+fi
+
+# Phase 2: render the full vhost (port-80 redirect + port-443 with the new cert)
+export CREDENTIALS_DOMAIN WEBROOT
+envsubst '${CREDENTIALS_DOMAIN}${WEBROOT}${PAGE_TOKEN}' \
+  < "$SCRIPT_DIR/web/nginx-vhost.conf.template" \
+  > "$VHOST_PATH"
+nginx -t
+systemctl reload nginx
 
 # Configure and enable fail2ban
 mkdir -p /etc/fail2ban/jail.d /etc/fail2ban/filter.d

@@ -71,7 +71,8 @@ The credentials page runs on the host nginx. If nginx is not already installed:
 apt-get install -y nginx certbot python3-certbot-nginx
 ```
 
-Make sure port 80 and 443 are reachable — Certbot needs port 80 for the HTTP-01 challenge.
+Make sure port 80 and 443 are reachable — `setup-nginx.sh` uses the certbot
+**webroot** method (HTTP-01 challenge served by nginx on port 80).
 
 ---
 

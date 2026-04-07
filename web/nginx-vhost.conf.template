@@ -1,10 +1,43 @@
+# ── Port 80: ACME challenge + permanent redirect to HTTPS ────────────────────
+# The application itself lives entirely in the HTTPS block below so that
+# render-nginx-vhost.sh can overwrite this file on every deploy without
+# losing the SSL configuration (certbot certonly --webroot is used, which
+# never touches the nginx config).
 server {
     listen 80;
     server_name ${CREDENTIALS_DOMAIN};
     server_tokens off;
 
+    # Let's Encrypt ACME webroot challenge (certificate renewal)
+    location /.well-known/acme-challenge/ {
+        root ${WEBROOT};
+        try_files $uri =404;
+    }
+
+    # Redirect all other HTTP traffic to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ── Port 443: TLS termination + application ───────────────────────────────────
+server {
+    listen 443 ssl;
+    server_name ${CREDENTIALS_DOMAIN};
+    server_tokens off;
+
+    ssl_certificate     /etc/letsencrypt/live/${CREDENTIALS_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${CREDENTIALS_DOMAIN}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
     # /check — NOT served publicly; accessible only via SSH tunnel to 127.0.0.1:9000
     location /check { return 444; }
+
+    # Trailing-slash redirect so /TOKEN works as well as /TOKEN/
+    location = /${PAGE_TOKEN} {
+        return 301 /${PAGE_TOKEN}/;
+    }
 
     # Credentials page — only the exact token path is served
     location /${PAGE_TOKEN}/ {
