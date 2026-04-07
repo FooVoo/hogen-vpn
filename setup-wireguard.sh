@@ -119,7 +119,17 @@ fi
 #
 # PostUp/PreDown notes:
 #   - FORWARD rules allow traffic from/to wg0 to be routed through the container.
-#   - MASQUERADE on eth0 NATs VPN client traffic for internet access.
+#   - MASQUERADE is scoped to -s 10.13.13.0/24 (the WireGuard tunnel subnet).
+#     A broad "-o eth0 -j MASQUERADE" (no source) also masquerades WireGuard's
+#     own handshake packets, which creates conntrack entries that conflict with
+#     Docker's port-forwarding DNAT.  The conflict causes Linux MASQUERADE to
+#     assign a random ephemeral source port (not 51820) to server-initiated
+#     handshakes; the client responds to that ephemeral port, Docker has no
+#     forwarding rule for it, the response is dropped, and neither side ever
+#     completes the handshake — an infinite 5-second retry loop.
+#     Scoping to 10.13.13.0/24 ensures only tunnelled client traffic is
+#     masqueraded; WireGuard control-plane packets are left to Docker's own
+#     conntrack, which handles them correctly.
 #   - PREROUTING DNAT intercepts DNS (port 53) from wg0 and redirects to 1.1.1.1
 #     so the client can use 10.13.13.1 as its DNS (always reachable via the tunnel).
 #   - "; true" at the end ensures wg-quick always exits 0 even if some iptables
@@ -135,8 +145,8 @@ Address      = 10.13.13.1/24
 ListenPort   = ${WG_PORT}
 MTU          = 1420
 SaveConfig   = false
-PostUp       = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE; iptables -t nat -A PREROUTING -i %i -p udp --dport 53 -j DNAT --to 1.1.1.1; iptables -t nat -A PREROUTING -i %i -p tcp --dport 53 -j DNAT --to 1.1.1.1; true
-PreDown      = iptables -D FORWARD -i %i -j ACCEPT 2>/dev/null; iptables -D FORWARD -o %i -j ACCEPT 2>/dev/null; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE 2>/dev/null; iptables -t nat -D PREROUTING -i %i -p udp --dport 53 -j DNAT --to 1.1.1.1 2>/dev/null; iptables -t nat -D PREROUTING -i %i -p tcp --dport 53 -j DNAT --to 1.1.1.1 2>/dev/null; true
+PostUp       = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -s 10.13.13.0/24 -o eth0 -j MASQUERADE; iptables -t nat -A PREROUTING -i %i -p udp --dport 53 -j DNAT --to 1.1.1.1; iptables -t nat -A PREROUTING -i %i -p tcp --dport 53 -j DNAT --to 1.1.1.1; true
+PreDown      = iptables -D FORWARD -i %i -j ACCEPT 2>/dev/null; iptables -D FORWARD -o %i -j ACCEPT 2>/dev/null; iptables -t nat -D POSTROUTING -s 10.13.13.0/24 -o eth0 -j MASQUERADE 2>/dev/null; iptables -t nat -D PREROUTING -i %i -p udp --dport 53 -j DNAT --to 1.1.1.1 2>/dev/null; iptables -t nat -D PREROUTING -i %i -p tcp --dport 53 -j DNAT --to 1.1.1.1 2>/dev/null; true
 
 [Peer]
 # peer1

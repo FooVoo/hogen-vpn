@@ -21,14 +21,15 @@ Pick any provider with servers outside your target region: Hetzner, DigitalOcean
 
 After ordering, also open the firewall in the hosting control panel (if present — many providers have a separate network-level firewall in addition to `ufw`):
 
-| Port(s) | Protocol |
-|---|---|
-| 80, 443 | TCP |
-| 2083 | TCP |
-| 8443 | TCP |
-| 8388 | TCP + UDP |
-| 500 | UDP |
-| 4500 | UDP |
+| Port(s) | Protocol | Service |
+|---|---|---|
+| 80, 443 | TCP | nginx / Let's Encrypt |
+| 2083 | TCP | MTProxy |
+| 8443 | TCP | VLESS + Reality |
+| 8388 | TCP + UDP | Shadowsocks |
+| 500 | UDP | IKEv2 |
+| 4500 | UDP | IKEv2 NAT-T |
+| **51820** | **UDP** | **WireGuard** |
 
 ---
 
@@ -175,10 +176,11 @@ docker compose ps
 Expected output:
 
 ```
-NAME    STATUS
-mtg     Up (healthy)
-xray    Up (healthy)
-ipsec   Up (healthy)
+NAME        STATUS
+mtg         Up (healthy)
+xray        Up (healthy)
+ipsec       Up (healthy)
+wireguard   Up (healthy)
 ```
 
 The `ipsec` container takes ~60 seconds to initialize on first run (generates PKI).
@@ -270,13 +272,44 @@ docker compose exec ipsec ipsec status
 Connect from iOS: Settings → General → VPN & Device Management → VPN → Add VPN Configuration → IKEv2.
 Use the server, username, password, and PSK shown on the credentials page.
 
----
+### WireGuard
 
-## Maintenance
+```bash
+# Verify wg0 interface is up and listening
+docker compose exec wireguard wg show
+
+# Check the container is healthy
+docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q wireguard)
+```
+
+Expected output of `wg show`:
+```
+interface: wg0
+  public key: <WG_SERVER_PUBLIC_KEY>
+  private key: (hidden)
+  listening port: 51820
+
+peer: <WG_CLIENT_PUBLIC_KEY>
+  preshared key: (hidden)
+  allowed ips: 10.13.13.2/32
+```
+
+Download the `wg-client.conf` file from the credentials page and import it into the WireGuard app.
+
+> **If handshake fails:** first verify that UDP 51820 is open in your **hosting provider's** network-level firewall (separate from UFW). Many providers (Hetzner, DigitalOcean, etc.) have a cloud firewall that must also be configured.
+
+```bash
+# Quick reachability check from outside the server
+nc -zvu <SERVER_IP> 51820
+
+# On the server — confirm UFW and Docker both expose the port
+ufw status | grep 51820
+ss -ulnp | grep 51820
+```
 
 | Task | Command |
 |---|---|
-| View logs | `docker compose logs -f [mtg\|xray\|ipsec]` |
+| View logs | `docker compose logs -f [mtg\|xray\|ipsec\|wireguard]` |
 | Restart a service | `docker compose restart xray` |
 | Restart all | `docker compose restart` |
 | Check auto-start service | `systemctl status hogen-vpn.service` |
@@ -287,6 +320,8 @@ Use the server, username, password, and PSK shown on the credentials page.
 | Backfill missing .env vars | `sudo ./migrate-env.sh && sudo ./setup-nginx.sh` |
 | Regenerate credentials | `./generate-secrets.sh <IP> && sudo ./setup-nginx.sh && docker compose restart` |
 | Update Xray config | `./render-xray-config.sh && docker compose restart xray` |
+| Update WireGuard config (no rekey) | `./setup-wireguard.sh --update-config` |
+| Regenerate WireGuard keys | `./setup-wireguard.sh --force` |
 | Re-render credentials page | `./render-credentials-page.sh` |
 
 ---
@@ -298,6 +333,28 @@ Use the server, username, password, and PSK shown on the credentials page.
 docker compose logs ipsec
 # First run generates PKI — takes ~60s. If still failing, check /lib/modules is mounted
 ```
+
+**WireGuard handshake failing (client sends but gets no response):**
+
+Most common cause: UDP 51820 is open in UFW but blocked by the **hosting provider's** network firewall.
+
+```bash
+# 1. Verify UFW has the rule
+ufw status | grep 51820
+
+# 2. Verify Docker is binding the port on the host
+ss -ulnp | grep 51820
+
+# 3. Verify wg0 is up inside the container
+docker compose exec wireguard wg show
+
+# 4. Check container logs for startup errors
+docker compose logs wireguard
+```
+
+If `ss -ulnp | grep 51820` shows the port bound but the client still can't reach it, the block is at the cloud firewall — open UDP 51820 in the hosting control panel.
+
+If `wg show` shows no peers or wrong keys, re-download the client config from the credentials page — keys may have been regenerated with `--force`.
 
 **IKEv2 clients cannot reconnect after a drop (or reconnection requires a container restart):**
 

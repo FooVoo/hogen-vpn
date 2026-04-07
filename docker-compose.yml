@@ -95,18 +95,18 @@ services:
       PGID: "1000"
       TZ: "Etc/UTC"
     ports:
-      - "51820:51820/udp"
+      - "${WG_PORT:-51820}:${WG_PORT:-51820}/udp"
     volumes:
-      - ./wireguard/wg0.conf:/config/wg_confs/wg0.conf
+      - ./wireguard/wg0.conf:/config/wg_confs/wg0.conf:ro
       - /lib/modules:/lib/modules:ro
     sysctls:
       - net.ipv4.conf.all.src_valid_mark=1
       - net.ipv4.ip_forward=1
     healthcheck:
       # Verify wg0 is up AND bound to the expected listen port.
-      # "listening port: 51820" only appears when wg-quick completed successfully;
+      # "listening port: <port>" only appears when wg-quick completed successfully;
       # a plain "ip link show wg0" would pass even on a half-initialised interface.
-      test: ["CMD-SHELL", "wg show wg0 2>/dev/null | grep -q 'listening port: 51820'"]
+      test: ["CMD-SHELL", "wg show wg0 2>/dev/null | grep -q 'listening port: ${WG_PORT:-51820}'"]
       interval: 30s
       timeout: 10s
       retries: 3
