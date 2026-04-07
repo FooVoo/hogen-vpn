@@ -312,38 +312,16 @@ systemctl daemon-reload
 systemctl enable --now vpn-rotate-api.service
 log_ok "Force-rotation API enabled (vpn-rotate-api.service on 127.0.0.1:9001)."
 
-# --- Netdata monitoring -------------------------------------------------------
-# Install Netdata (via apt; provides a stable, distro-maintained version).
-if ! command -v netdata >/dev/null 2>&1; then
-  log_info "Installing Netdata..."
-  apt-get install -y --quiet netdata
-fi
-
-# The VPN charts.d plugin runs as the netdata user; it needs docker access.
-if getent group docker >/dev/null 2>&1 && ! id -nG netdata 2>/dev/null | grep -qw docker; then
-  usermod -aG docker netdata
-  log_info "Added netdata to docker group."
-fi
-
-# Deploy charts.d plugin and health alerts.
-NETDATA_CHARTS_DIR="${NETDATA_CHARTS_DIR:-/usr/lib/netdata/charts.d}"
-NETDATA_HEALTH_DIR="${NETDATA_HEALTH_DIR:-/etc/netdata/health.d}"
-mkdir -p "$NETDATA_CHARTS_DIR" "$NETDATA_HEALTH_DIR"
-
-install -m 755 "${SCRIPT_DIR}/netdata/vpn.chart.sh" "${NETDATA_CHARTS_DIR}/vpn.chart.sh"
-install -m 644 "${SCRIPT_DIR}/netdata/health.d/vpn.conf" "${NETDATA_HEALTH_DIR}/vpn.conf"
-
-# Write VPN_DIR so the plugin knows where to read rotation timestamps.
-mkdir -p /etc/netdata/charts.d
-cat > /etc/netdata/charts.d/vpn.conf <<EOF
-VPN_DIR=${SCRIPT_DIR}
-EOF
-
-systemctl restart netdata
-log_ok "Netdata monitoring enabled (http://localhost:19999)."
-log_info "Public dashboard: https://${DOMAIN}/net-data/  (user: admin  pass: PAGE_TOKEN)"
-log_info "WGDashboard:      https://${DOMAIN}/wg-dash/   (nginx: admin/PAGE_TOKEN → wgd login: admin/admin, change on first login)"
-log_info "View via CLI:     ./vpn-logs.sh --url"
+# --- Monitoring stack (Prometheus + cAdvisor + Grafana) -----------------------
+# All three run as Docker Compose services defined in docker-compose.yml.
+# No host-level install needed — they start with 'docker compose up -d'.
+# Grafana is served at /grafana/ via the nginx vhost rendered above.
+log_ok "Monitoring stack ready: Grafana at https://${DOMAIN}/grafana/"
+log_info "  nginx auth:   admin / PAGE_TOKEN"
+log_info "  Grafana auth: admin / PAGE_TOKEN  (initial; change via Grafana UI)"
+log_info "  Recommended dashboard: import ID 193 (Docker Monitoring with cAdvisor) from grafana.com/dashboards"
+log_info "WGDashboard:  https://${DOMAIN}/wg-dash/  (nginx: admin/PAGE_TOKEN → wgd: admin/admin, change on first login)"
+log_info "View via CLI: ./vpn-logs.sh --url"
 systemctl reload nginx
 
 log_ok ""

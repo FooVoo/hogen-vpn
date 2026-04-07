@@ -176,12 +176,15 @@ docker compose ps
 Expected output:
 
 ```
-NAME        STATUS
-mtg         Up (healthy)
-xray        Up (healthy)
-ipsec       Up (healthy)
-wireguard   Up (healthy)
-wgdashboard Up (healthy)
+NAME          STATUS
+mtg           Up (healthy)
+xray          Up (healthy)
+ipsec         Up (healthy)
+wireguard     Up (healthy)
+wgdashboard   Up (healthy)
+cadvisor      Up (healthy)
+prometheus    Up (healthy)
+grafana       Up (healthy)
 ```
 
 The `ipsec` container takes ~60 seconds to initialize on first run (generates PKI).
@@ -317,12 +320,22 @@ docker compose exec wireguard ss -tlnp | grep 10086
 ```
 
 Open `https://<DOMAIN>/wg-dash/` in a browser.
-- **nginx layer**: user `admin`, password = `PAGE_TOKEN` (same as Netdata)
+- **nginx layer**: user `admin`, password = `PAGE_TOKEN` (same as Grafana)
 - **WGDashboard login**: user `admin`, password `admin` — change this on first login
+
+### Grafana monitoring
+
+```bash
+docker compose ps cadvisor prometheus grafana
+```
+
+Open `https://<DOMAIN>/grafana/` — nginx auth: admin / PAGE_TOKEN, then Grafana: admin / PAGE_TOKEN.
+
+Import the **Docker cAdvisor** dashboard from [grafana.com/dashboards/193](https://grafana.com/grafana/dashboards/193) to get per-container CPU, memory, network, and disk charts out of the box.
 
 | Task | Command |
 |---|---|
-| View logs | `docker compose logs -f [mtg\|xray\|ipsec\|wireguard\|wgdashboard]` |
+| View logs | `docker compose logs -f [mtg\|xray\|ipsec\|wireguard\|wgdashboard\|grafana\|prometheus]` |
 | Restart a service | `docker compose restart xray` |
 | Restart all | `docker compose restart` |
 | Check auto-start service | `systemctl status hogen-vpn.service` |

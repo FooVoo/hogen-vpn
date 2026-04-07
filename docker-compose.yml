@@ -137,3 +137,79 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  cadvisor:
+    # Scrapes per-container CPU / memory / network / disk metrics from cgroups.
+    # Prometheus pulls from cadvisor:8080/metrics — not exposed to the host.
+    image: gcr.io/cadvisor/cadvisor:latest
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    depends_on:
+      - cadvisor
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9090/-/healthy >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:3000:3000"     # nginx proxies /grafana/
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      # Subpath proxy — must match the nginx location prefix.
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      # Initial admin password — seeded from PAGE_TOKEN on first start only.
+      # Changing PAGE_TOKEN later does NOT update this; use Grafana UI to reset.
+      GF_SECURITY_ADMIN_PASSWORD: "${PAGE_TOKEN}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_LOG_LEVEL: "warn"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  prometheus-data:
+  grafana-data:
