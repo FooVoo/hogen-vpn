@@ -342,6 +342,7 @@ EOF
 systemctl restart netdata
 log_ok "Netdata monitoring enabled (http://localhost:19999)."
 log_info "Public dashboard: https://${DOMAIN}/net-data/  (user: admin  pass: PAGE_TOKEN)"
+log_info "WGDashboard:      https://${DOMAIN}/wg-dash/   (nginx: admin/PAGE_TOKEN → wgd login: admin/admin, change on first login)"
 log_info "View via CLI:     ./vpn-logs.sh --url"
 systemctl reload nginx
 

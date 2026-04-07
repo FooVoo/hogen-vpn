@@ -29,7 +29,7 @@ ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" "chmod +x ${DEPLOY_REMOTE_DIR}/*.sh"
 echo "Synced → ${DEPLOY_HOST}:${DEPLOY_REMOTE_DIR}"
 
 echo "Re-rendering configs on server..."
-ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" "cd ${DEPLOY_REMOTE_DIR} && ./render-xray-config.sh && ./render-credentials-page.sh"
+ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" "cd ${DEPLOY_REMOTE_DIR} && ./render-xray-config.sh && ./render-credentials-page.sh && sudo ./render-nginx-vhost.sh"
 
 echo "Restarting containers..."
 ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" "cd ${DEPLOY_REMOTE_DIR} && docker compose up -d --force-recreate"

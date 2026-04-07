@@ -181,6 +181,7 @@ mtg         Up (healthy)
 xray        Up (healthy)
 ipsec       Up (healthy)
 wireguard   Up (healthy)
+wgdashboard Up (healthy)
 ```
 
 The `ipsec` container takes ~60 seconds to initialize on first run (generates PKI).
@@ -307,9 +308,21 @@ ufw status | grep 51820
 ss -ulnp | grep 51820
 ```
 
+### WGDashboard
+
+```bash
+# Check the container is healthy and port 10086 is bound
+docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q wgdashboard)
+docker compose exec wireguard ss -tlnp | grep 10086
+```
+
+Open `https://<DOMAIN>/wg-dash/` in a browser.
+- **nginx layer**: user `admin`, password = `PAGE_TOKEN` (same as Netdata)
+- **WGDashboard login**: user `admin`, password `admin` — change this on first login
+
 | Task | Command |
 |---|---|
-| View logs | `docker compose logs -f [mtg\|xray\|ipsec\|wireguard]` |
+| View logs | `docker compose logs -f [mtg\|xray\|ipsec\|wireguard\|wgdashboard]` |
 | Restart a service | `docker compose restart xray` |
 | Restart all | `docker compose restart` |
 | Check auto-start service | `systemctl status hogen-vpn.service` |
@@ -322,6 +335,7 @@ ss -ulnp | grep 51820
 | Update Xray config | `./render-xray-config.sh && docker compose restart xray` |
 | Update WireGuard config (no rekey) | `./setup-wireguard.sh --update-config` |
 | Regenerate WireGuard keys | `./setup-wireguard.sh --force` |
+| Re-render nginx vhost | `sudo ./render-nginx-vhost.sh` |
 | Re-render credentials page | `./render-credentials-page.sh` |
 
 ---

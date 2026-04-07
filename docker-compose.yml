@@ -96,6 +96,7 @@ services:
       TZ: "Etc/UTC"
     ports:
       - "${WG_PORT:-51820}:${WG_PORT:-51820}/udp"
+      - "127.0.0.1:10086:10086"      # WGDashboard web UI (nginx proxies /wg-dash/)
     volumes:
       - ./wireguard/wg0.conf:/config/wg_confs/wg0.conf:ro
       - /lib/modules:/lib/modules:ro
@@ -107,6 +108,31 @@ services:
       # "listening port: <port>" only appears when wg-quick completed successfully;
       # a plain "ip link show wg0" would pass even on a half-initialised interface.
       test: ["CMD-SHELL", "wg show wg0 2>/dev/null | grep -q 'listening port: ${WG_PORT:-51820}'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  wgdashboard:
+    # WireGuard management web UI — served via nginx at /wg-dash/.
+    # network_mode: service:wireguard shares wg0's network namespace so the
+    # dashboard can run `wg show wg0` for live stats and `wg syncconf wg0`
+    # after peer changes. Port 10086 is published through the wireguard
+    # service's port binding above (127.0.0.1:10086).
+    image: donaldzou/wgdashboard:latest
+    restart: unless-stopped
+    depends_on:
+      wireguard:
+        condition: service_healthy
+    network_mode: service:wireguard
+    volumes:
+      - ./wireguard/wg0.conf:/etc/wireguard/wg0.conf
+    cap_add:
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "ss -tlnp | grep -q ':10086 '"]
       interval: 30s
       timeout: 10s
       retries: 3
