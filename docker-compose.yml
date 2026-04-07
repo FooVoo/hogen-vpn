@@ -191,9 +191,12 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana
     environment:
-      # Subpath proxy — must match the nginx location prefix.
-      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana/"
-      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      # nginx strips the /grafana/ prefix before forwarding to Grafana, so
+      # serve_from_sub_path must be false (Grafana serves from /).  The explicit
+      # root_url is needed so Grafana constructs correct redirect / link URLs;
+      # using the %(domain)s interpolation would default to "localhost".
+      GF_SERVER_ROOT_URL: "https://${CREDENTIALS_DOMAIN}/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "false"
       # Initial admin password — seeded from PAGE_TOKEN on first start only.
       # Changing PAGE_TOKEN later does NOT update this; use Grafana UI to reset.
       GF_SECURITY_ADMIN_PASSWORD: "${PAGE_TOKEN}"
