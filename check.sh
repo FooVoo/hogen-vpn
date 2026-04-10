@@ -21,6 +21,10 @@ mkdir -p "$CHECK_DIR"
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+# Which optional profiles are enabled (same default as setup-nginx.sh)
+COMPOSE_PROFILES="${COMPOSE_PROFILES:-xray,ikev2,wireguard,monitoring}"
+_profile_enabled() { [[ ",$COMPOSE_PROFILES," == *",$1,"* ]]; }
+
 # ── Probes ──────────────────────────────────────────────────────────────────
 
 # TCP port reachability using bash's /dev/tcp (no nc dependency)
@@ -36,17 +40,40 @@ check_service() {
   [[ -n "$cid" ]] && echo "up" || echo "down"
 }
 
-MTG_TCP=$(check_tcp 2083)
-MTG_CTR=$(check_service mtg)
-XRAY_TCP=$(check_tcp 8443)
-SS_TCP=$(check_tcp 8388)
-XRAY_CTR=$(check_service xray)
-IPSEC_CTR=$(check_service ipsec)
-WG_CTR=$(check_service wireguard)
+# Detect active MTProxy backend from COMPOSE_PROFILES.
+# The mtg and telemt services are mutually exclusive (share host port 2083).
+# Fall back to mtg probes if neither profile is set (legacy deployments).
+MTG_PORT="${MTG_PORT:-2083}"
+if _profile_enabled telemt; then
+  MTG_TCP=$(check_tcp "$MTG_PORT")
+  MTG_CTR=$(check_service telemt)
+  _MTG_LABEL="MTProxy/telemt"
+  _MTG_CHECK="tcp:${MTG_PORT}"
+else
+  MTG_TCP=$(check_tcp 2083)
+  MTG_CTR=$(check_service mtg)
+  _MTG_LABEL="MTProxy (Telegram)"
+  _MTG_CHECK="tcp:2083"
+fi
 
-# Overall: degraded if any single check fails
+# Optional-service probes — only run when the profile is enabled
+XRAY_TCP="" SS_TCP="" XRAY_CTR="" IPSEC_CTR="" WG_CTR=""
+if _profile_enabled xray; then
+  XRAY_TCP=$(check_tcp 8443)
+  SS_TCP=$(check_tcp 8388)
+  XRAY_CTR=$(check_service xray)
+fi
+_profile_enabled ikev2     && IPSEC_CTR=$(check_service ipsec)
+_profile_enabled wireguard && WG_CTR=$(check_service wireguard)
+
+# Overall: degraded if any enabled check fails
+_check_statuses=("$MTG_TCP" "$MTG_CTR")
+_profile_enabled xray      && _check_statuses+=("$XRAY_TCP" "$SS_TCP" "$XRAY_CTR")
+_profile_enabled ikev2     && _check_statuses+=("$IPSEC_CTR")
+_profile_enabled wireguard && _check_statuses+=("$WG_CTR")
+
 OVERALL="ok"
-for s in "$MTG_TCP" "$MTG_CTR" "$XRAY_TCP" "$SS_TCP" "$XRAY_CTR" "$IPSEC_CTR" "$WG_CTR"; do
+for s in "${_check_statuses[@]}"; do
   [[ "$s" == "down" ]] && { OVERALL="degraded"; break; }
 done
 OVERALL_UP=$(echo "$OVERALL" | tr '[:lower:]' '[:upper:]')
@@ -61,6 +88,27 @@ _row() {
   printf '      <tr><td>%s</td><td class="dim">%s</td><td class="%s">%s</td></tr>\n' \
     "$name" "$check" "$status" "$status_up"
 }
+
+# Pre-build table rows so optional services are omitted when disabled
+_tbody=""
+_tbody+="$(_row "${_MTG_LABEL}"        "${_MTG_CHECK}"  "$MTG_TCP")"$'\n'
+_tbody+="$(_row 'MTProxy container'   'docker compose' "$MTG_CTR")"$'\n'
+if _profile_enabled xray; then
+  _tbody+="$(_row 'VLESS + Reality'   'tcp:8443'       "$XRAY_TCP")"$'\n'
+  _tbody+="$(_row 'Shadowsocks 2022'  'tcp:8388'       "$SS_TCP")"$'\n'
+  _tbody+="$(_row 'Xray container'    'docker compose' "$XRAY_CTR")"$'\n'
+fi
+_profile_enabled ikev2     && _tbody+="$(_row 'IKEv2 / IPSec' 'docker compose' "$IPSEC_CTR")"$'\n'
+_profile_enabled wireguard && _tbody+="$(_row 'WireGuard'      'docker compose' "$WG_CTR")"$'\n'
+
+# Pre-build JSON services object
+_json_svc="\"mtproxy\": { \"tcp_${MTG_PORT}\": \"${MTG_TCP}\", \"container\": \"${MTG_CTR}\" }"
+if _profile_enabled xray; then
+  _json_svc+=", \"vless\": { \"tcp_8443\": \"${XRAY_TCP}\", \"container\": \"${XRAY_CTR}\" }"
+  _json_svc+=", \"shadowsocks\": { \"tcp_8388\": \"${SS_TCP}\",   \"container\": \"${XRAY_CTR}\" }"
+fi
+_profile_enabled ikev2     && _json_svc+=", \"ikev2\": { \"container\": \"${IPSEC_CTR}\" }"
+_profile_enabled wireguard && _json_svc+=", \"wireguard\": { \"container\": \"${WG_CTR}\" }"
 
 cat > "${CHECK_DIR}/index.html" <<HTML
 <!DOCTYPE html>
@@ -96,14 +144,7 @@ cat > "${CHECK_DIR}/index.html" <<HTML
       <tr><th>Service</th><th>Check</th><th>Status</th></tr>
     </thead>
     <tbody>
-$(_row "MTProxy (Telegram)"   "tcp:2083"        "$MTG_TCP")
-$(_row "MTProxy container"    "docker compose"  "$MTG_CTR")
-$(_row "VLESS + Reality"      "tcp:8443"        "$XRAY_TCP")
-$(_row "Shadowsocks 2022"     "tcp:8388"        "$SS_TCP")
-$(_row "Xray container"       "docker compose"  "$XRAY_CTR")
-$(_row "IKEv2 / IPSec"        "docker compose"  "$IPSEC_CTR")
-$(_row "WireGuard"            "docker compose"  "$WG_CTR")
-    </tbody>
+${_tbody}    </tbody>
   </table>
   <p class="footer">Last checked: ${TIMESTAMP} &nbsp;·&nbsp; auto-refreshes every 60 s</p>
 </body>
@@ -116,13 +157,7 @@ cat > "${CHECK_DIR}/status.json" <<JSON
 {
   "status": "${OVERALL}",
   "checked_at": "${TIMESTAMP}",
-  "services": {
-    "mtproxy":     { "tcp_2083": "${MTG_TCP}",  "container": "${MTG_CTR}"  },
-    "vless":       { "tcp_8443": "${XRAY_TCP}", "container": "${XRAY_CTR}" },
-    "shadowsocks": { "tcp_8388": "${SS_TCP}",   "container": "${XRAY_CTR}" },
-    "ikev2":       { "container": "${IPSEC_CTR}"                           },
-    "wireguard":   { "container": "${WG_CTR}"                              }
-  }
+  "services": { ${_json_svc} }
 }
 JSON
 
@@ -143,15 +178,6 @@ CHECK_IPSEC_CTR=${IPSEC_CTR}
 CHECK_WG_CTR=${WG_CTR}
 ENV
 chmod 600 "${SCRIPT_DIR}/.check_env"
-
-# Push overall status to Netdata StatsD (1 = ok, 0 = degraded).
-# This supplements the charts.d plugin with an app-level health gauge.
-_ok() { [[ "$1" == "up" ]] && echo 1 || echo 0; }
-log_metric "overall"  "$( [[ "$OVERALL" == "ok" ]] && echo 1 || echo 0 )"
-log_metric "port.mtg"   "$(_ok "$MTG_TCP")"
-log_metric "port.xray"  "$(_ok "$XRAY_TCP")"
-log_metric "port.ss"    "$(_ok "$SS_TCP")"
-log_metric "ctr.wg"     "$(_ok "$WG_CTR")"
 
 # Re-render the credentials page so the embedded status card stays fresh.
 "${SCRIPT_DIR}/render-credentials-page.sh" "$WEBROOT" || true

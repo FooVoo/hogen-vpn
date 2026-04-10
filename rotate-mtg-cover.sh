@@ -101,6 +101,4 @@ docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --force-recreate mtg 
 
 date '+%Y-%m-%d %H:%M %Z' > "${SCRIPT_DIR}/.last_mtg_rotation"
 
-log_metric "rotations.mtg" 1 c
-
 log_ok "MTProxy fingerprint: ${CURRENT_MTG_DOMAIN} → ${MTG_COVER_DOMAIN}"

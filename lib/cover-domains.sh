@@ -11,7 +11,6 @@
 COVER_DOMAINS=(
   # International — accessible from Russia
   "www.microsoft.com"
-  "www.cloudflare.com"
   "github.com"
   "www.bing.com"
   "www.apple.com"
@@ -29,7 +28,6 @@ COVER_DOMAINS=(
   "www.jetbrains.com"
   "www.aliexpress.com"
   "www.yahoo.com"
-  "www.docker.com"
   # Russian domestic — high-traffic, unsuspicious from RU IPs
   "www.yandex.ru"
   "mail.ru"

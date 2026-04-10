@@ -10,11 +10,15 @@
 # Requirements: ssh, curl available on the remote host.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/log.sh
+source "${SCRIPT_DIR}/lib/log.sh"
+
 TARGET="${1:-}"
 MODE="${2:-}"
 
 if [[ -z "$TARGET" ]]; then
-  echo "Usage: $0 user@host [--json]"
+  log_error "Usage: $0 user@host [--json]"
   exit 1
 fi
 

@@ -182,9 +182,5 @@ docker compose -f "${SCRIPT_DIR}/docker-compose.yml" up -d --force-recreate xray
 date '+%Y-%m-%d %H:%M %Z' > "${SCRIPT_DIR}/.last_xray_rotation"
 date '+%Y-%m-%d %H:%M %Z' > "${SCRIPT_DIR}/.last_mtg_rotation"
 
-# Increment rotation counters in Netdata StatsD.
-log_metric "rotations.xray" 1 c
-log_metric "rotations.mtg"  1 c
-
 log_ok "REALITY cover domain: ${CURRENT_DOMAIN} → ${XRAY_SNI}"
 log_ok "MTProxy fingerprint:  ${CURRENT_MTG_DOMAIN} → ${MTG_COVER_DOMAIN}"

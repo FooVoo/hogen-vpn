@@ -17,6 +17,11 @@ set -a; source "$SCRIPT_DIR/.env"; set +a
 [[ -n "${CREDENTIALS_DOMAIN:-}" ]] || { log_error "CREDENTIALS_DOMAIN is missing in .env"; exit 1; }
 [[ -n "${PAGE_TOKEN:-}" ]]        || { log_error "PAGE_TOKEN is missing — re-run generate-secrets.sh"; exit 1; }
 
+# Which optional profiles are enabled. Default to all services when
+# COMPOSE_PROFILES is absent (existing deployments without the variable).
+COMPOSE_PROFILES="${COMPOSE_PROFILES:-xray,ikev2,wireguard,monitoring}"
+_profile_enabled() { [[ ",$COMPOSE_PROFILES," == *",$1,"* ]]; }
+
 DOMAIN="${CREDENTIALS_DOMAIN}"
 WEBROOT="${CREDENTIALS_WEBROOT:-/var/www/vpn}"
 VHOST_PATH="${NGINX_VHOST_PATH:-/etc/nginx/sites-available/vpn}"
@@ -42,12 +47,12 @@ ufw allow OpenSSH comment "SSH"
 ufw allow 80/tcp   comment "HTTP"
 ufw allow 443/tcp  comment "HTTPS"
 ufw allow 2083/tcp comment "MTProxy"
-ufw allow 8443/tcp comment "VLESS"
-ufw allow 8388/tcp comment "Shadowsocks"
-ufw allow 8388/udp comment "Shadowsocks"
-ufw allow 500/udp  comment "IKEv2"
-ufw allow 4500/udp comment "IKEv2 NAT-T"
-ufw allow 51820/udp comment "WireGuard"
+_profile_enabled xray      && ufw allow 8443/tcp comment "VLESS"
+_profile_enabled xray      && ufw allow 8388/tcp comment "Shadowsocks"
+_profile_enabled xray      && ufw allow 8388/udp comment "Shadowsocks"
+_profile_enabled ikev2     && ufw allow 500/udp  comment "IKEv2"
+_profile_enabled ikev2     && ufw allow 4500/udp comment "IKEv2 NAT-T"
+_profile_enabled wireguard && ufw allow 51820/udp comment "WireGuard"
 ufw --force enable
 
 # Generate HTML credentials page (written to $WEBROOT/$PAGE_TOKEN/)
@@ -56,15 +61,14 @@ ufw --force enable
 # Install nginx rate limiting zone first — vhost references zone=vpn_auth
 # so this must be in place before the first nginx -t
 cp "$SCRIPT_DIR/web/nginx-ratelimit.conf"       /etc/nginx/conf.d/vpn-ratelimit.conf
-cp "$SCRIPT_DIR/web/nginx-netdata-proxy.conf"   /etc/nginx/conf.d/vpn-netdata-proxy.conf
+cp "$SCRIPT_DIR/web/nginx-ws-upgrade.conf"      /etc/nginx/conf.d/vpn-ws-upgrade.conf
 
-# Generate basic auth credentials for the Netdata dashboard.
-# Username: admin  Password: PAGE_TOKEN
-# openssl passwd -apr1 produces an Apache MD5 hash accepted by nginx.
+# Generate Basic Auth credentials (admin / PAGE_TOKEN) for the Grafana and
+# WGDashboard reverse proxies.
 HTPASSWD_HASH=$(openssl passwd -apr1 "${PAGE_TOKEN}")
-printf 'admin:%s\n' "$HTPASSWD_HASH" > /etc/nginx/.htpasswd-netdata
-chmod 640 /etc/nginx/.htpasswd-netdata
-chown root:www-data /etc/nginx/.htpasswd-netdata
+printf 'admin:%s\n' "$HTPASSWD_HASH" > /etc/nginx/.htpasswd-proxy
+chmod 640 /etc/nginx/.htpasswd-proxy
+chown root:www-data /etc/nginx/.htpasswd-proxy
 
 # Install local-only health-check listener (127.0.0.1:9000 — SSH access only)
 export WEBROOT
@@ -226,6 +230,13 @@ MTG_TIMER_PATH="/etc/systemd/system/vpn-mtg-rotate.timer"
 MTG_INTERVAL="${MTG_ROTATE_MINS:-0}"
 MTG_REASON=""
 
+# Choose rotation script based on active MTProxy backend
+if _profile_enabled telemt; then
+  MTG_ROTATE_SCRIPT="${SCRIPT_DIR}/rotate-telemt-cover.sh"
+else
+  MTG_ROTATE_SCRIPT="${SCRIPT_DIR}/rotate-mtg-cover.sh"
+fi
+
 if [[ -z "${MTG_COVER_DOMAINS:-}" ]]; then
   MTG_REASON="MTG_COVER_DOMAINS is missing in .env. Regenerate secrets before enabling MTProxy rotation."
 elif ! [[ "$MTG_INTERVAL" =~ ^[0-9]+$ ]]; then
@@ -240,7 +251,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=${SCRIPT_DIR}
-ExecStart=${SCRIPT_DIR}/rotate-mtg-cover.sh
+ExecStart=${MTG_ROTATE_SCRIPT}
 TimeoutStartSec=120
 EOF
 
@@ -313,54 +324,10 @@ systemctl enable --now vpn-health-check.timer
 "${SCRIPT_DIR}/check.sh" || true
 log_ok "Health-check monitoring enabled (vpn-health-check.timer)."
 
-# --- Rust toolchain (for rotate-api) -----------------------------------------
-# rotate-api is a compiled Rust binary; build it once during setup.
-CARGO_BIN="${HOME}/.cargo/bin/cargo"
-if ! command -v cargo >/dev/null 2>&1 && [[ ! -x "$CARGO_BIN" ]]; then
-  log_info "Installing Rust toolchain via rustup..."
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-    | sh -s -- -y --profile minimal --no-modify-path
-  log_ok "Rust installed: $("${HOME}/.cargo/bin/rustc" --version)"
-fi
-export PATH="${HOME}/.cargo/bin:${PATH}"
-
-log_info "Building rotate-api (cargo build --release)..."
-(cd "${SCRIPT_DIR}/rotate-api" && cargo build --release --quiet)
-log_ok "rotate-api binary built."
-
-# --- Force-rotation API -------------------------------------------------------
-# rotate-api (Rust binary) listens on 127.0.0.1:9001 and runs rotation scripts on demand.
-ROTATE_API_SERVICE_PATH="/etc/systemd/system/vpn-rotate-api.service"
-cat > "$ROTATE_API_SERVICE_PATH" <<EOF
-[Unit]
-Description=hogen-vpn on-demand rotation API
-After=docker.service hogen-vpn.service
-Wants=docker.service
-
-[Service]
-Type=simple
-WorkingDirectory=${SCRIPT_DIR}
-ExecStart=${SCRIPT_DIR}/rotate-api/target/release/rotate-api
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-systemctl daemon-reload
-systemctl enable --now vpn-rotate-api.service
-log_ok "Force-rotation API enabled (vpn-rotate-api.service on 127.0.0.1:9001)."
-
 # --- Monitoring stack (Prometheus + cAdvisor + Grafana) -----------------------
 # All three run as Docker Compose services defined in docker-compose.yml.
 # No host-level install needed — they start with 'docker compose up -d'.
 # Grafana is served at /grafana/ via the nginx vhost rendered above.
-log_ok "Monitoring stack ready: Grafana at https://${DOMAIN}/grafana/"
-log_info "  nginx auth:   admin / PAGE_TOKEN"
-log_info "  Grafana auth: admin / PAGE_TOKEN  (initial; change via Grafana UI)"
-log_info "  Recommended dashboard: import ID 193 (Docker Monitoring with cAdvisor) from grafana.com/dashboards"
-log_info "WGDashboard:  https://${DOMAIN}/wg-dash/  (nginx: admin/PAGE_TOKEN → wgd: admin/admin, change on first login)"
-log_info "View via CLI: ./vpn-logs.sh --url"
 systemctl reload nginx
 
 log_ok ""
@@ -369,5 +336,15 @@ log_ok "Credentials page: https://${DOMAIN}/${PAGE_TOKEN}/"
 log_info "Status page (SSH): ssh user@${DOMAIN} curl -s http://127.0.0.1:9000/check/status.json"
 log_info "Share the credentials URL — it is the only credential needed."
 log_info ""
-log_info "Container status:"
-docker compose -f "${SCRIPT_DIR}/docker-compose.yml" ps
+
+if _profile_enabled monitoring; then
+  log_ok "Monitoring stack ready: Grafana at https://${DOMAIN}/grafana/"
+  log_info "  nginx auth:   admin / PAGE_TOKEN"
+  log_info "  Grafana auth: admin / PAGE_TOKEN  (initial; change via Grafana UI)"
+  log_info "  Recommended dashboard: import ID 193 (Docker Monitoring with cAdvisor) from grafana.com/dashboards"
+fi
+if _profile_enabled wireguard; then
+  log_info "WGDashboard:  https://${DOMAIN}/wg-dash/  (nginx: admin/PAGE_TOKEN → wgd: admin/admin, change on first login)"
+fi
+
+log_info "View via CLI: ./vpn-logs.sh --url"

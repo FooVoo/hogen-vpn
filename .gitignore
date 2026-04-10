@@ -4,6 +4,7 @@
 .last_mtg_rotation
 .check_env
 mtg/config.toml
+telemt/config.toml
 xray/config.json
 ipsec/data/
 wireguard/wg0.conf
@@ -11,3 +12,4 @@ wireguard/peer1.conf
 web/index.html
 web/.htpasswd
 rotate-api/target/
+/.idea/

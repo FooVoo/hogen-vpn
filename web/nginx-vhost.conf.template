@@ -56,18 +56,35 @@ server {
         add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
     }
 
-    # Force-rotation API — POST to trigger, GET to poll status.
-    # Security: path contains PAGE_TOKEN (same level as credentials page URL).
-    location = /${PAGE_TOKEN}/rotate/xray {
-        limit_except GET POST { deny all; }
-        proxy_pass http://127.0.0.1:9001/rotate/xray;
-        proxy_read_timeout 180s;
+    # telemt management API — token-gated reverse proxy.
+    # Forwards /${PAGE_TOKEN}/telemt/<path> → http://127.0.0.1:9091/<path>
+    # so that GET /${PAGE_TOKEN}/telemt/v1/users returns all proxy links,
+    # and GET /${PAGE_TOKEN}/telemt/v1/status returns the daemon status.
+    # Only reachable when the telemt Docker Compose profile is active;
+    # returns 502 otherwise (telemt not running → connection refused).
+    location = /${PAGE_TOKEN}/telemt {
+        return 301 /${PAGE_TOKEN}/telemt/;
     }
 
-    location = /${PAGE_TOKEN}/rotate/mtg {
-        limit_except GET POST { deny all; }
-        proxy_pass http://127.0.0.1:9001/rotate/mtg;
-        proxy_read_timeout 180s;
+    location ~ ^/${PAGE_TOKEN}/telemt/(?<telmt_path>.*)$ {
+        limit_req zone=vpn_auth burst=10 nodelay;
+
+        proxy_pass         http://127.0.0.1:9091/$telmt_path$is_args$args;
+        proxy_redirect     off;
+        proxy_set_header   Host               localhost;
+        proxy_set_header   X-Real-IP          $remote_addr;
+        proxy_set_header   X-Forwarded-For    $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto  $scheme;
+
+        # The telemt API may stream large JSON responses
+        proxy_read_timeout 30s;
+
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
     }
 
     # Grafana monitoring dashboard — password-protected reverse proxy.
@@ -84,7 +101,7 @@ server {
 
     location ~ ^/grafana/(?<grafpath>.*)$ {
         auth_basic "VPN Monitoring";
-        auth_basic_user_file /etc/nginx/.htpasswd-netdata;
+        auth_basic_user_file /etc/nginx/.htpasswd-proxy;
 
         proxy_redirect   off;
         proxy_set_header Host                $host;
@@ -102,7 +119,7 @@ server {
     }
 
     # WireGuard management dashboard — password-protected reverse proxy.
-    # Credentials: username "admin", password = PAGE_TOKEN (shared with Netdata).
+    # Credentials: username "admin", password = PAGE_TOKEN.
     # WGDashboard has its own login on top; default is admin / admin.
     #
     # The WGDashboard Vue SPA is built with Vite base "/static/dist/WGDashboardAdmin",
@@ -117,7 +134,7 @@ server {
     # Vue SPA static assets — must come before location / { return 444; }
     location /static/dist/WGDashboardAdmin/ {
         auth_basic "WireGuard Dashboard";
-        auth_basic_user_file /etc/nginx/.htpasswd-netdata;
+        auth_basic_user_file /etc/nginx/.htpasswd-proxy;
 
         proxy_redirect   off;
         proxy_set_header Host                $host;
@@ -131,7 +148,7 @@ server {
 
     location ~ ^/wg-dash/(?<wgdpath>.*)$ {
         auth_basic "WireGuard Dashboard";
-        auth_basic_user_file /etc/nginx/.htpasswd-netdata;
+        auth_basic_user_file /etc/nginx/.htpasswd-proxy;
 
         proxy_redirect   off;
         proxy_set_header Host                $host;

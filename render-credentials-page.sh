@@ -2,15 +2,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/log.sh
+source "${SCRIPT_DIR}/lib/log.sh"
+
 ENV_FILE="${SCRIPT_DIR}/.env"
 WEBROOT="${1:-/var/www/vpn}"
 
-[[ -f "$ENV_FILE" ]] || { echo "ERROR: .env not found — run generate-secrets.sh first"; exit 1; }
-command -v envsubst >/dev/null 2>&1 || { echo "ERROR: envsubst is not installed"; exit 1; }
+[[ -f "$ENV_FILE" ]] || { log_error ".env not found — run generate-secrets.sh first"; exit 1; }
+command -v envsubst >/dev/null 2>&1 || { log_error "envsubst is not installed (apt install gettext-base)"; exit 1; }
 
 set -a; source "$ENV_FILE"; set +a
 
-[[ -n "${PAGE_TOKEN:-}" ]] || { echo "ERROR: PAGE_TOKEN is missing — re-run generate-secrets.sh"; exit 1; }
+[[ -n "${PAGE_TOKEN:-}" ]] || { log_error "PAGE_TOKEN is missing — re-run generate-secrets.sh"; exit 1; }
 
 if [[ "${XRAY_ROTATE_MINS:-0}" =~ ^[0-9]+$ ]] && (( ${XRAY_ROTATE_MINS:-0} > 0 )); then
   XRAY_ROTATION_MESSAGE="Cover-domain обновляется автоматически каждые ${XRAY_ROTATE_MINS:-0} мин. После следующей ротации старый профиль может перестать подключаться, поэтому заново открой эту страницу и импортируй свежую ссылку или QR-код."
@@ -90,3 +93,5 @@ PersistentKeepalive = 25
 WG_EOF
   chmod 640 "${TOKEN_DIR}/wg-client.conf"
 fi
+
+log_ok "Credentials page rendered → ${TOKEN_DIR}/index.html"

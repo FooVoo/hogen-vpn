@@ -24,32 +24,35 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/log.sh
+source "${SCRIPT_DIR}/lib/log.sh"
+
 DATA_DIR="$SCRIPT_DIR/ipsec/data"
 cd "$SCRIPT_DIR"
 
-[[ -f ".env" ]] || { echo "ERROR: .env not found — run generate-secrets.sh first"; exit 1; }
-command -v docker >/dev/null 2>&1 || { echo "ERROR: docker is not installed"; exit 1; }
+[[ -f ".env" ]] || { log_error ".env not found — run generate-secrets.sh first"; exit 1; }
+command -v docker >/dev/null 2>&1 || { log_error "docker is not installed"; exit 1; }
 
 # ── Wait for healthy ────────────────────────────────────────────────────────
 
-echo "Waiting for ipsec container to become healthy (up to 90s on first run)..."
+log_info "Waiting for ipsec container to become healthy (up to 150 s on first run)..."
 for i in $(seq 1 30); do
     CONTAINER_ID=$(docker compose ps -q ipsec 2>/dev/null | head -1 || true)
     if [[ -n "$CONTAINER_ID" ]]; then
         STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$CONTAINER_ID" 2>/dev/null || echo "")
         if [[ "$STATUS" == "healthy" ]]; then
-            echo "ipsec container is healthy."
+            log_ok "ipsec container is healthy."
             break
         fi
     else
         STATUS="not running"
     fi
     if [[ $i -eq 30 ]]; then
-        echo "ERROR: ipsec container did not become healthy after 150s."
-        echo "  docker compose logs ipsec"
+        log_error "ipsec container did not become healthy after 150 s."
+        log_info  "  docker compose logs ipsec"
         exit 1
     fi
-    echo "  ($i/30) status='${STATUS:-starting}', retrying in 5s..."
+    log_info "  ($i/30) status='${STATUS:-starting}', retrying in 5 s..."
     sleep 5
 done
 
@@ -61,7 +64,7 @@ done
 # ikev2.conf so it runs right after the main file's 'config setup uniqueids=no'.
 OVERRIDE_CONF="$DATA_DIR/00-reconnect-fix.conf"
 if [[ -f "$OVERRIDE_CONF" ]]; then
-    echo "00-reconnect-fix.conf already present, skipping."
+    log_info "00-reconnect-fix.conf already present, skipping."
 else
     cat > "$OVERRIDE_CONF" << 'EOF'
 # Managed by setup-ipsec.sh — do not edit manually.
@@ -72,37 +75,36 @@ else
 config setup
     uniqueids=replace
 EOF
-    echo "Created $OVERRIDE_CONF (uniqueids=replace)"
+    log_ok "Created $OVERRIDE_CONF (uniqueids=replace)"
 fi
 
 # ── Fix 2: aggressive DPD in ikev2.conf ────────────────────────────────────
 
 IKEV2_CONF="$DATA_DIR/ikev2.conf"
 if [[ ! -f "$IKEV2_CONF" ]]; then
-    echo "ERROR: $IKEV2_CONF not found."
-    echo "The ipsec container generates this file on first run."
-    echo "Ensure the container completed PKI initialisation, then retry."
+    log_error "$IKEV2_CONF not found."
+    log_info  "The ipsec container generates this file on first run."
+    log_info  "Ensure the container completed PKI initialisation, then retry."
     exit 1
 fi
 
 if grep -q 'dpdtimeout' "$IKEV2_CONF"; then
-    echo "$IKEV2_CONF already patched (dpdtimeout present), skipping."
+    log_info "$IKEV2_CONF already patched (dpdtimeout present), skipping."
 else
     # Reduce probe interval from 30 s to 15 s and add an explicit 60 s timeout.
     # hwdsl2 generates 'dpddelay=30' with two-space indentation.
     sed -i -E 's/^[[:space:]]*dpddelay=[0-9]+/  dpddelay=15/' "$IKEV2_CONF"
     sed -i '/dpddelay=15/a\  dpdtimeout=60' "$IKEV2_CONF"
-    echo "Patched $IKEV2_CONF (dpddelay=15, dpdtimeout=60)"
+    log_ok "Patched $IKEV2_CONF (dpddelay=15, dpdtimeout=60)"
 fi
 
 # ── Restart to apply ────────────────────────────────────────────────────────
 
-echo "Restarting ipsec container to load new configuration..."
+log_info "Restarting ipsec container to load new configuration..."
 docker compose restart ipsec
 
-echo ""
-echo "IKEv2 reconnection fixes applied."
-echo ""
-echo "Verify:"
-echo "  docker compose exec ipsec grep uniqueids /etc/ipsec.conf"
-echo "  docker compose exec ipsec ipsec status | grep ikev2-cp"
+log_ok ""
+log_ok "IKEv2 reconnection fixes applied."
+log_info "Verify:"
+log_info "  docker compose exec ipsec grep uniqueids /etc/ipsec.conf"
+log_info "  docker compose exec ipsec ipsec status | grep ikev2-cp"

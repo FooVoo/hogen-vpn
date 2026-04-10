@@ -2,20 +2,23 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/log.sh
+source "${SCRIPT_DIR}/lib/log.sh"
+
 ENV_FILE="${SCRIPT_DIR}/.env"
 
-[[ -f "$ENV_FILE" ]] || { echo "ERROR: .env not found — run generate-secrets.sh first"; exit 1; }
+[[ -f "$ENV_FILE" ]] || { log_error ".env not found — run generate-secrets.sh first"; exit 1; }
 
 set -a; source "$ENV_FILE"; set +a
 
-[[ -n "${XRAY_UUID:-}" ]]        || { echo "ERROR: XRAY_UUID is missing"; exit 1; }
-[[ -n "${XRAY_PRIVATE_KEY:-}" ]] || { echo "ERROR: XRAY_PRIVATE_KEY is missing"; exit 1; }
-[[ -n "${XRAY_SHORT_ID:-}" ]]    || { echo "ERROR: XRAY_SHORT_ID is missing"; exit 1; }
-[[ -n "${XRAY_SNI:-}" ]]         || { echo "ERROR: XRAY_SNI is missing"; exit 1; }
-[[ -n "${XRAY_DEST:-}" ]]        || { echo "ERROR: XRAY_DEST is missing"; exit 1; }
-[[ -n "${SS_PASSWORD:-}" ]]      || { echo "ERROR: SS_PASSWORD is missing"; exit 1; }
-[[ -n "${SS_METHOD:-}" ]]        || { echo "ERROR: SS_METHOD is missing"; exit 1; }
-[[ -n "${SS_PORT:-}" ]]          || { echo "ERROR: SS_PORT is missing"; exit 1; }
+[[ -n "${XRAY_UUID:-}" ]]        || { log_error "XRAY_UUID is missing in .env"; exit 1; }
+[[ -n "${XRAY_PRIVATE_KEY:-}" ]] || { log_error "XRAY_PRIVATE_KEY is missing in .env"; exit 1; }
+[[ -n "${XRAY_SHORT_ID:-}" ]]    || { log_error "XRAY_SHORT_ID is missing in .env"; exit 1; }
+[[ -n "${XRAY_SNI:-}" ]]         || { log_error "XRAY_SNI is missing in .env"; exit 1; }
+[[ -n "${XRAY_DEST:-}" ]]        || { log_error "XRAY_DEST is missing in .env"; exit 1; }
+[[ -n "${SS_PASSWORD:-}" ]]      || { log_error "SS_PASSWORD is missing in .env"; exit 1; }
+[[ -n "${SS_METHOD:-}" ]]        || { log_error "SS_METHOD is missing in .env"; exit 1; }
+[[ -n "${SS_PORT:-}" ]]          || { log_error "SS_PORT is missing in .env"; exit 1; }
 
 # For Shadowsocks 2022 methods the password must be a base64-encoded key of the correct size.
 if [[ "${SS_METHOD}" == 2022-* ]]; then
@@ -23,11 +26,11 @@ if [[ "${SS_METHOD}" == 2022-* ]]; then
         *-aes-128-gcm)          _required_bytes=16 ;;
         *-aes-256-gcm)          _required_bytes=32 ;;
         *-chacha20-poly1305)    _required_bytes=32 ;;
-        *) echo "ERROR: Unrecognised Shadowsocks 2022 method: ${SS_METHOD}"; exit 1 ;;
+        *) log_error "Unrecognised Shadowsocks 2022 method: ${SS_METHOD}"; exit 1 ;;
     esac
     _actual_bytes=$(printf '%s' "${SS_PASSWORD}" | base64 -d 2>/dev/null | wc -c | tr -d '[:space:]')
     [[ "${_actual_bytes}" -eq "${_required_bytes}" ]] || {
-        echo "ERROR: SS_PASSWORD for ${SS_METHOD} must decode to ${_required_bytes} bytes (got ${_actual_bytes})"
+        log_error "SS_PASSWORD for ${SS_METHOD} must decode to ${_required_bytes} bytes (got ${_actual_bytes})"
         exit 1
     }
 fi
@@ -91,3 +94,4 @@ cat > "${SCRIPT_DIR}/xray/config.json" <<EOF
 }
 EOF
 chmod 644 "${SCRIPT_DIR}/xray/config.json"
+log_ok "xray/config.json written (SNI: ${XRAY_SNI}, SS method: ${SS_METHOD})"

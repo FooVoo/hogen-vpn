@@ -2,12 +2,45 @@
 
 Complete walkthrough for deploying the full VPN stack on a fresh Ubuntu/Debian VPS.
 
+## Optional services
+
+MTProxy is the only mandatory service. All other protocols and the monitoring stack are **optional** and controlled through Docker Compose profiles. Set `COMPOSE_PROFILES` in `.env` (or pass `--services=` to `generate-secrets.sh`) to choose what runs:
+
+| Profile | Services | Default |
+|---|---|---|
+| `xray` | VLESS + Reality, Shadowsocks 2022 | enabled |
+| `ikev2` | IKEv2 / IPSec | enabled |
+| `wireguard` | WireGuard + WGDashboard | enabled |
+| `monitoring` | Prometheus, cAdvisor, Grafana | enabled |
+
+**MTProxy-only minimal setup:**
+```bash
+./generate-secrets.sh <SERVER_IP> --services=
+```
+
+**Custom selection — MTProxy + Xray only:**
+```bash
+./generate-secrets.sh <SERVER_IP> --services=xray
+```
+
+**Full stack (default):**
+```bash
+./generate-secrets.sh <SERVER_IP>   # --services=xray,ikev2,wireguard,monitoring implied
+```
+
+To change profiles on an **existing** deployment, edit `COMPOSE_PROFILES` in `.env`, then:
+```bash
+docker compose up -d --remove-orphans
+```
+
+---
+
 ## Requirements
 
 - Ubuntu 22.04 LTS VPS (1 vCPU, 1 GB RAM minimum) outside the target region
 - A domain name with an A record pointing to the server IP
 - Root or sudo access
-- Ports 80, 443, 2083, 8388, 8443 (TCP) and 500, 4500 (UDP) not blocked at the cloud/hosting firewall level
+- Ports 80, 443, 2083 (TCP) open at the cloud/hosting firewall level; additional ports per enabled services
 
 ---
 
@@ -21,15 +54,17 @@ Pick any provider with servers outside your target region: Hetzner, DigitalOcean
 
 After ordering, also open the firewall in the hosting control panel (if present — many providers have a separate network-level firewall in addition to `ufw`):
 
-| Port(s) | Protocol | Service |
-|---|---|---|
-| 80, 443 | TCP | nginx / Let's Encrypt |
-| 2083 | TCP | MTProxy |
-| 8443 | TCP | VLESS + Reality |
-| 8388 | TCP + UDP | Shadowsocks |
-| 500 | UDP | IKEv2 |
-| 4500 | UDP | IKEv2 NAT-T |
-| **51820** | **UDP** | **WireGuard** |
+| Port(s) | Protocol | Service | Required |
+|---|---|---|---|
+| 80, 443 | TCP | nginx / Let's Encrypt | always |
+| 2083 | TCP | MTProxy | always |
+| 8443 | TCP | VLESS + Reality | `xray` profile |
+| 8388 | TCP + UDP | Shadowsocks | `xray` profile |
+| 500 | UDP | IKEv2 | `ikev2` profile |
+| 4500 | UDP | IKEv2 NAT-T | `ikev2` profile |
+| **51820** | **UDP** | **WireGuard** | `wireguard` profile |
+
+Only open the ports that correspond to the profiles you are enabling.
 
 ---
 
@@ -101,14 +136,28 @@ On the **server**:
 
 ```bash
 cd /opt/vpn
-./generate-secrets.sh <SERVER_IP> [REALITY_COVER_DOMAIN] [CREDENTIALS_DOMAIN]
+./generate-secrets.sh <SERVER_IP> [options]
 ```
+
+Options:
+
+| Flag | Description |
+|---|---|
+| `--services=LIST` | Comma-separated profiles to enable (default: `xray,ikev2,wireguard,monitoring`) |
+| `--cover-domain=DOMAIN` | Pin the VLESS+Reality SNI cover domain |
+| `--credentials-domain=DOMAIN` | Set the credentials-page FQDN |
 
 Examples:
 
 ```bash
-# Minimal — auto-selects cover domain, credentials page domain set separately
+# Full stack (default) — all protocols + monitoring
 ./generate-secrets.sh 1.2.3.4
+
+# MTProxy + Xray only
+./generate-secrets.sh 1.2.3.4 --services=xray
+
+# MTProxy only (minimal)
+./generate-secrets.sh 1.2.3.4 --services=
 
 # Pin a specific cover domain
 ./generate-secrets.sh 1.2.3.4 www.microsoft.com
@@ -117,10 +166,10 @@ Examples:
 ./generate-secrets.sh 1.2.3.4 www.microsoft.com vpn.example.com
 ```
 
-The script creates `.env`, `mtg/config.toml`, and `xray/config.json`.
+The script creates `.env`, `mtg/config.toml`, and (if enabled) `xray/config.json`, `wireguard/wg0.conf`.
 **Write down the page login credentials** printed at the end — they are shown only once (though they are stored in `.env`).
 
-If `CREDENTIALS_DOMAIN` was not passed as arg 3, add it to `.env` manually:
+If `CREDENTIALS_DOMAIN` was not passed, add it to `.env` manually:
 
 ```bash
 echo "CREDENTIALS_DOMAIN=vpn.example.com" >> /opt/vpn/.env
@@ -168,24 +217,18 @@ docker compose up -d
 systemctl is-enabled hogen-vpn.service   # should print "enabled"
 ```
 
-Check all three containers started:
-
-```bash
-docker compose ps
-```
-
-Expected output:
+Check all containers started (output depends on which profiles are enabled):
 
 ```
 NAME          STATUS
 mtg           Up (healthy)
-xray          Up (healthy)
-ipsec         Up (healthy)
-wireguard     Up (healthy)
-wgdashboard   Up (healthy)
-cadvisor      Up (healthy)
-prometheus    Up (healthy)
-grafana       Up (healthy)
+xray          Up (healthy)     # xray profile
+ipsec         Up (healthy)     # ikev2 profile
+wireguard     Up (healthy)     # wireguard profile
+wgdashboard   Up (healthy)     # wireguard profile
+cadvisor      Up (healthy)     # monitoring profile
+prometheus    Up (healthy)     # monitoring profile
+grafana       Up (healthy)     # monitoring profile
 ```
 
 The `ipsec` container takes ~60 seconds to initialize on first run (generates PKI).
@@ -340,6 +383,7 @@ Import the **Docker cAdvisor** dashboard from [grafana.com/dashboards/193](https
 | Restart a service | `docker compose restart xray` |
 | Restart all | `docker compose restart` |
 | Check auto-start service | `systemctl status hogen-vpn.service` |
+| Enable/disable profiles | Edit `COMPOSE_PROFILES` in `.env`, then `docker compose up -d --remove-orphans` |
 | Force Xray rotation now | `sudo systemctl start vpn-reality-cover-rotate.service` |
 | Force MTProxy rotation now | `sudo systemctl start vpn-mtg-rotate.service` |
 | Check Xray rotation timer | `systemctl status vpn-reality-cover-rotate.timer` |

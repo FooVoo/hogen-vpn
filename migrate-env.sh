@@ -10,10 +10,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/log.sh
+source "${SCRIPT_DIR}/lib/log.sh"
+
 ENV_FILE="${1:-${SCRIPT_DIR}/.env}"
 
 [[ -f "$ENV_FILE" ]] || {
-  echo "ERROR: .env not found at '${ENV_FILE}' — run generate-secrets.sh first"
+  log_error ".env not found at '${ENV_FILE}' — run generate-secrets.sh first"
   exit 1
 }
 
@@ -56,6 +59,11 @@ add() {
 }
 
 # ── migrations ───────────────────────────────────────────────────────────────
+
+# COMPOSE_PROFILES — controls which optional Docker Compose profiles are active.
+# Existing deployments had all services; set the full list so nothing changes.
+add "COMPOSE_PROFILES" "COMPOSE_PROFILES=xray,ikev2,wireguard,monitoring" \
+  "Docker Compose profiles to enable (xray, ikev2, wireguard, monitoring)"
 
 # XRAY_ROTATE_MINS (renamed from XRAY_ROTATE_HOURS)
 if ! has_key "XRAY_ROTATE_MINS"; then
@@ -124,19 +132,15 @@ add "LETSENCRYPT_EMAIL" "LETSENCRYPT_EMAIL=" \
 
 # ── report ───────────────────────────────────────────────────────────────────
 
-echo ""
 if (( ${#ADDED[@]} == 0 )); then
-  echo "✓ .env is already up to date — no variables were missing."
+  log_ok ".env is already up to date — no variables were missing."
 else
-  echo "Added ${#ADDED[@]} missing variable(s) to ${ENV_FILE}:"
-  for v in "${ADDED[@]}"; do echo "  + $v"; done
-  echo ""
+  log_ok "Added ${#ADDED[@]} missing variable(s) to ${ENV_FILE}:"
+  for v in "${ADDED[@]}"; do log_info "  + $v"; done
   if has_key "XRAY_ROTATE_HOURS" && has_key "XRAY_ROTATE_MINS"; then
-    echo "NOTE: XRAY_ROTATE_HOURS still exists in .env alongside the new"
-    echo "      XRAY_ROTATE_MINS. You can safely remove XRAY_ROTATE_HOURS."
-    echo ""
+    log_warn "XRAY_ROTATE_HOURS still exists in .env alongside XRAY_ROTATE_MINS — you can safely remove it."
   fi
-  echo "Next steps:"
-  echo "  1. Review ${ENV_FILE}"
-  echo "  2. sudo ./setup-nginx.sh   # re-installs systemd timers with new vars"
+  log_info "Next steps:"
+  log_info "  1. Review ${ENV_FILE}"
+  log_info "  2. sudo ./setup-nginx.sh   # re-installs systemd timers with new vars"
 fi
