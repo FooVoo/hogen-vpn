@@ -25,7 +25,7 @@ MTProxy is the only mandatory service. All other protocols and the monitoring st
 
 **Full stack (default):**
 ```bash
-./generate-secrets.sh <SERVER_IP>   # --services=xray,ikev2,wireguard,monitoring implied
+./generate-secrets.sh <SERVER_IP>   # --services=xray,ikev2,wireguard,monitoring,mtproxy-mtg implied
 ```
 
 To change profiles on an **existing** deployment, edit `COMPOSE_PROFILES` in `.env`, then:
@@ -193,8 +193,8 @@ This script:
 6. Allows SSH in UFW first (prevents lockout), then opens all required ports, then calls `ufw --force enable`
 7. Installs `/etc/nginx/conf.d/vpn-ratelimit.conf` (5 req/min limit per IP on credentials page)
 8. Installs and enables **fail2ban** with SSH + nginx-http-auth jails
-9. Installs `vpn-reality-cover-rotate.timer` (fires every 30 minutes, 3-minute random jitter)
-10. Installs `vpn-mtg-rotate.timer` (fires every 30 minutes, 3-minute random jitter)
+9. Installs `vpn-reality-cover-rotate.timer` (fires every 120 minutes, 3-minute random jitter)
+10. Installs `vpn-mtg-rotate.timer` (fires every 120 minutes, 3-minute random jitter)
 
 After the script finishes, check nginx:
 

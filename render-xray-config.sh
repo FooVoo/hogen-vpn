@@ -36,6 +36,7 @@ if [[ "${SS_METHOD}" == 2022-* ]]; then
 fi
 
 mkdir -p "${SCRIPT_DIR}/xray"
+chmod 700 "${SCRIPT_DIR}/xray"
 cat > "${SCRIPT_DIR}/xray/config.json" <<EOF
 {
     "log": { "loglevel": "warning" },
@@ -93,5 +94,5 @@ cat > "${SCRIPT_DIR}/xray/config.json" <<EOF
     ]
 }
 EOF
-chmod 644 "${SCRIPT_DIR}/xray/config.json"
+chmod 600 "${SCRIPT_DIR}/xray/config.json"
 log_ok "xray/config.json written (SNI: ${XRAY_SNI}, SS method: ${SS_METHOD})"

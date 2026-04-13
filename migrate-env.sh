@@ -41,7 +41,7 @@ ensure_newline() {
 
 # add KEY LINE [COMMENT]
 #   Appends "# COMMENT\nLINE\n" to the file if KEY is absent.
-#   LINE should be the full assignment, e.g. XRAY_ROTATE_MINS=30
+#   LINE should be the full assignment, e.g. XRAY_ROTATE_MINS=120
 add() {
   local key="$1" line="$2" comment="${3:-}"
   if has_key "$key"; then
@@ -61,9 +61,12 @@ add() {
 # ── migrations ───────────────────────────────────────────────────────────────
 
 # COMPOSE_PROFILES — controls which optional Docker Compose profiles are active.
-# Existing deployments had all services; set the full list so nothing changes.
-add "COMPOSE_PROFILES" "COMPOSE_PROFILES=xray,ikev2,wireguard,monitoring" \
-  "Docker Compose profiles to enable (xray, ikev2, wireguard, monitoring)"
+# Existing deployments had all services plus one MTProxy backend. Prefer telemt
+# when its generated config exists; otherwise fall back to classic mtg.
+DEFAULT_MTPROXY_PROFILE="mtproxy-mtg"
+[[ -f "${SCRIPT_DIR}/telemt/config.toml" ]] && DEFAULT_MTPROXY_PROFILE="telemt"
+add "COMPOSE_PROFILES" "COMPOSE_PROFILES=xray,ikev2,wireguard,monitoring,${DEFAULT_MTPROXY_PROFILE}" \
+  "Docker Compose profiles to enable (xray, ikev2, wireguard, monitoring, choose one MTProxy backend: mtproxy-mtg or telemt)"
 
 # XRAY_ROTATE_MINS (renamed from XRAY_ROTATE_HOURS)
 if ! has_key "XRAY_ROTATE_MINS"; then
@@ -72,18 +75,18 @@ if ! has_key "XRAY_ROTATE_MINS"; then
     if [[ "$OLD_H" =~ ^[0-9]+$ ]]; then
       NEW_M=$(( OLD_H * 60 ))
     else
-      NEW_M=30
+      NEW_M=120
     fi
     add "XRAY_ROTATE_MINS" "XRAY_ROTATE_MINS=${NEW_M}" \
       "migrated from XRAY_ROTATE_HOURS=${OLD_H} (${OLD_H}h → ${NEW_M}min)"
   else
-    add "XRAY_ROTATE_MINS" "XRAY_ROTATE_MINS=30" \
+    add "XRAY_ROTATE_MINS" "XRAY_ROTATE_MINS=120" \
       "rotation interval in minutes (0 = disabled)"
   fi
 fi
 
 # MTG_ROTATE_MINS
-add "MTG_ROTATE_MINS" "MTG_ROTATE_MINS=30" \
+add "MTG_ROTATE_MINS" "MTG_ROTATE_MINS=120" \
   "MTProxy rotation interval in minutes (0 = disabled)"
 
 # MTG_COVER_DOMAINS — fall back to XRAY_COVER_DOMAINS pool

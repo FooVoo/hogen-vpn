@@ -26,6 +26,7 @@ report() {
 # ---------------------------------------------------------------------------
 cp "$SCRIPT_DIR/render-xray-config.sh" "$WORK_DIR/"
 cp "$SCRIPT_DIR/render-credentials-page.sh" "$WORK_DIR/"
+cp -r "$SCRIPT_DIR/lib" "$WORK_DIR/"
 cp -r "$SCRIPT_DIR/web" "$WORK_DIR/"
 chmod +x "$WORK_DIR/render-xray-config.sh" "$WORK_DIR/render-credentials-page.sh"
 cp "$SCRIPT_DIR/rotate-reality-cover.sh" "$WORK_DIR/"
@@ -217,7 +218,7 @@ CREDENTIALS_DOMAIN=vpn.example.com
 CREDENTIALS_WEBROOT=/var/www/vpn
 EOF
 OUTPUT=$( (cd "$WORK_DIR" && WEBROOT="$WEBROOT" bash rotate-reality-cover.sh 2>&1) || true)
-if echo "$OUTPUT" | grep -q "ERROR: need at least two cover domains"; then
+if echo "$OUTPUT" | grep -q "need at least two cover domains to rotate"; then
   report PASS "Single-domain pool rejected"
 else
   report FAIL "Single-domain pool was not rejected: $OUTPUT"
@@ -227,9 +228,9 @@ echo ""
 echo "=== Test 8: TLS availability check runs on real domains ==="
 write_mock_env "www.microsoft.com"
 OUTPUT=$( (cd "$WORK_DIR" && WEBROOT="$WEBROOT" bash rotate-reality-cover.sh 2>&1) || true)
-if echo "$OUTPUT" | grep -q "Rotated REALITY cover domain"; then
+if echo "$OUTPUT" | grep -q "REALITY cover domain:"; then
   report PASS "Rotation succeeded with TLS check"
-elif echo "$OUTPUT" | grep -q "ERROR: no reachable cover domain"; then
+elif echo "$OUTPUT" | grep -q "no reachable cover domain found"; then
   report FAIL "All domains failed TLS check (network issue?)"
 else
   report FAIL "Unexpected output: $OUTPUT"

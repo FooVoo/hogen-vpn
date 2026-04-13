@@ -45,7 +45,7 @@ done
 
 # Load SERVER_IP from .env if not provided on the command line
 if [[ -z "$SERVER_IP" ]] && [[ -f "${SCRIPT_DIR}/.env" ]]; then
-  SERVER_IP=$(grep -E '^SERVER_IP=' "${SCRIPT_DIR}/.env" | head -1 | cut -d= -f2- | tr -d '"')
+  SERVER_IP=$(grep -E '^SERVER_IP=' "${SCRIPT_DIR}/.env" | head -1 | cut -d= -f2- | tr -d '"' || true)
 fi
 [[ -n "$SERVER_IP" ]] || {
   log_error "SERVER_IP is required."
@@ -65,7 +65,7 @@ if [[ "$UPDATE_CONFIG" == true ]]; then
     log_error "--update-config requires existing keys in .env. Run without flags first."
     exit 1
   }
-  _lk() { grep -E "^${1}=" "${SCRIPT_DIR}/.env" | head -1 | cut -d= -f2- | tr -d '"'; }
+  _lk() { grep -E "^${1}=" "${SCRIPT_DIR}/.env" | head -1 | cut -d= -f2- | tr -d '"' || true; }
   WG_SERVER_PUBLIC=$(_lk WG_SERVER_PUBLIC_KEY)
   WG_CLIENT_PRIVATE=$(_lk WG_CLIENT_PRIVATE_KEY)
   WG_CLIENT_PUBLIC=$(_lk WG_CLIENT_PUBLIC_KEY)
@@ -73,7 +73,7 @@ if [[ "$UPDATE_CONFIG" == true ]]; then
   _p=$(_lk WG_PORT);      WG_PORT="${_p:-51820}"
   _c=$(_lk WG_CLIENT_IP); WG_CLIENT_IP="${_c:-10.13.13.2}"
   WG_SERVER_PRIVATE=$(grep -E '^\s*PrivateKey\s*=' "${SCRIPT_DIR}/wireguard/wg0.conf" 2>/dev/null \
-    | head -1 | sed 's/^[^=]*=[[:space:]]*//')
+    | head -1 | sed 's/^[^=]*=[[:space:]]*//' || true)
   [[ -n "$WG_SERVER_PRIVATE" && -n "$WG_CLIENT_PRIVATE" && -n "$WG_PSK" ]] || {
     log_error "Existing keys not found. Run ./setup-wireguard.sh first."
     exit 1
@@ -137,6 +137,7 @@ fi
 #     container restart loop that would break handshakes.
 
 mkdir -p "${SCRIPT_DIR}/wireguard"
+chmod 700 "${SCRIPT_DIR}/wireguard"
 rm -rf "${SCRIPT_DIR}/wireguard/wg0.conf"
 cat > "${SCRIPT_DIR}/wireguard/wg0.conf" <<EOF
 [Interface]

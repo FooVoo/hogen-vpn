@@ -36,7 +36,7 @@ done
 
 # Load SERVER_IP from .env if not provided on the command line
 if [[ -z "$SERVER_IP" ]] && [[ -f "${SCRIPT_DIR}/.env" ]]; then
-  SERVER_IP=$(grep -E '^SERVER_IP=' "${SCRIPT_DIR}/.env" | head -1 | cut -d= -f2- | tr -d '"')
+  SERVER_IP=$(grep -E '^SERVER_IP=' "${SCRIPT_DIR}/.env" | head -1 | cut -d= -f2- | tr -d '"' || true)
 fi
 [[ -n "$SERVER_IP" ]] || {
   log_error "SERVER_IP is required."
@@ -60,7 +60,7 @@ command -v docker >/dev/null 2>&1 || { log_error "docker is not installed"; exit
 
 if [[ -f "${SCRIPT_DIR}/.env" ]]; then
   _XRAY_DOMAINS=$(grep -E '^XRAY_COVER_DOMAINS=' "${SCRIPT_DIR}/.env" | head -1 \
-    | cut -d= -f2- | tr -d '"')
+    | cut -d= -f2- | tr -d '"' || true)
   if [[ -n "$_XRAY_DOMAINS" ]]; then
     IFS=',' read -ra COVER_DOMAINS <<< "$_XRAY_DOMAINS"
   fi
@@ -86,6 +86,7 @@ MTG_LINK="https://t.me/proxy?server=${SERVER_IP}&port=${MTG_PORT}&secret=${MTG_S
 # ── Write config file ─────────────────────────────────────────────────────────
 
 mkdir -p "${SCRIPT_DIR}/mtg"
+chmod 700 "${SCRIPT_DIR}/mtg"
 cat > "${SCRIPT_DIR}/mtg/config.toml" <<EOF
 secret = "${MTG_SECRET}"
 bind-to = "0.0.0.0:3128"

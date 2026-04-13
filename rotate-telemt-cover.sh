@@ -18,8 +18,6 @@ CONFIG="${SCRIPT_DIR}/telemt/config.toml"
 
 # shellcheck source=lib/log.sh
 source "${SCRIPT_DIR}/lib/log.sh"
-# shellcheck source=lib/cover-domains.sh
-source "${SCRIPT_DIR}/lib/cover-domains.sh"
 
 [[ -f "$ENV_FILE" ]] || { log_error ".env not found"; exit 1; }
 [[ -f "$CONFIG" ]]   || { log_error "telemt/config.toml not found — run setup-telemt.sh first"; exit 1; }
@@ -29,20 +27,44 @@ set -a; source "$ENV_FILE"; set +a
 [[ -n "${MTG_SECRET:-}" ]]      || { log_error "MTG_SECRET missing in .env"; exit 1; }
 [[ -n "${MTG_PORT:-}" ]]        || { log_error "MTG_PORT missing in .env"; exit 1; }
 [[ -n "${SERVER_IP:-}" ]]       || { log_error "SERVER_IP missing in .env"; exit 1; }
+command -v python3 >/dev/null 2>&1 || { log_error "python3 is required"; exit 1; }
+
+MTG_COVER_DOMAINS="${MTG_COVER_DOMAINS:-${XRAY_COVER_DOMAINS:-}}"
+[[ -n "$MTG_COVER_DOMAINS" ]] || { log_error "MTG_COVER_DOMAINS missing in .env"; exit 1; }
 
 CURRENT="${MTG_COVER_DOMAIN:-}"
 
-# Build candidate list (exclude current domain)
+# Build candidate list (exclude current domain) from configured pool, not the
+# built-in library fallback, so rotation stays in sync with telemt/config.toml.
 CANDIDATES=()
-for D in "${COVER_DOMAINS[@]}"; do
+IFS=',' read -r -a MTG_DOMAIN_POOL <<< "$MTG_COVER_DOMAINS"
+for D in "${MTG_DOMAIN_POOL[@]}"; do
   [[ -n "$D" && "$D" != "$CURRENT" ]] && CANDIDATES+=("$D")
 done
 (( ${#CANDIDATES[@]} > 0 )) || { log_error "No rotation candidates (pool exhausted?)"; exit 1; }
 
 NEXT="${CANDIDATES[$RANDOM % ${#CANDIDATES[@]}]}"
 
-# Patch tls_domain in telemt/config.toml
-sed -i "s|^tls_domain *= *\"[^\"]*\"|tls_domain = \"${NEXT}\"|" "$CONFIG"
+# Patch tls_domain in telemt/config.toml portably (GNU/BSD sed differ on -i).
+python3 - "$CONFIG" "$NEXT" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+config_path = Path(sys.argv[1])
+next_domain = sys.argv[2]
+text = config_path.read_text()
+updated, count = re.subn(
+    r'^tls_domain\s*=\s*"[^"]*"',
+    f'tls_domain = "{next_domain}"',
+    text,
+    count=1,
+    flags=re.MULTILINE,
+)
+if count != 1:
+    raise SystemExit("Could not patch tls_domain in telemt/config.toml")
+config_path.write_text(updated)
+PY
 
 # Reconstruct MTG_SECRET and MTG_LINK with the new domain (raw key stays the same)
 RAW_KEY="${MTG_SECRET:2:32}"

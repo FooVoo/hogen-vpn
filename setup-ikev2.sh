@@ -41,7 +41,7 @@ done
 
 # Load SERVER_IP from .env if not provided on the command line
 if [[ -z "$SERVER_IP" ]] && [[ -f "${SCRIPT_DIR}/.env" ]]; then
-  SERVER_IP=$(grep -E '^SERVER_IP=' "${SCRIPT_DIR}/.env" | head -1 | cut -d= -f2- | tr -d '"')
+  SERVER_IP=$(grep -E '^SERVER_IP=' "${SCRIPT_DIR}/.env" | head -1 | cut -d= -f2- | tr -d '"' || true)
 fi
 [[ -n "$SERVER_IP" ]] || {
   log_error "SERVER_IP is required."

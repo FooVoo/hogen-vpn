@@ -72,7 +72,7 @@ The standard deployment relies on the VPS host for the following:
 - **nginx** as the HTTPS web server for the credentials page
 - **Certbot** to provision and inject TLS configuration into the nginx vhost
 - **ufw** to open all required ports (80, 443, 2083, 8388, 8443, 500/udp, 4500/udp)
-- **systemd timers** (`vpn-reality-cover-rotate.timer`, `vpn-mtg-rotate.timer`) to run the respective rotation scripts every 30 minutes
+- **systemd timers** (`vpn-reality-cover-rotate.timer`, `vpn-mtg-rotate.timer`) to run the respective rotation scripts every 120 minutes
 - **filesystem storage** for generated secrets, rendered HTML, and the htpasswd file
 
 ### 2. Containerized services
@@ -175,7 +175,7 @@ These generated files are intentionally gitignored.
 | Server | `SERVER_IP` |
 | MTProxy | `MTG_SECRET`, `MTG_PORT`, `MTG_LINK` |
 | VLESS+Reality | `XRAY_UUID`, `XRAY_PRIVATE_KEY`, `XRAY_PUBLIC_KEY`, `XRAY_SHORT_ID`, `XRAY_SNI`, `XRAY_DEST`, `VLESS_URI` |
-| Rotation | `XRAY_COVER_DOMAINS` (35-domain pool), `XRAY_ROTATE_MINS` (default: 30) |
+| Rotation | `XRAY_COVER_DOMAINS` (35-domain pool), `XRAY_ROTATE_MINS` (default: 120) |
 | Shadowsocks | `SS_METHOD`, `SS_PORT`, `SS_PASSWORD`, `SS_URI` |
 | IKEv2 | `IKE_PSK`, `IKE_USER`, `IKE_PASSWORD` |
 | Credentials page | `PAGE_USER`, `PAGE_PASSWORD`, `CREDENTIALS_DOMAIN`, `CREDENTIALS_WEBROOT` |
@@ -186,7 +186,7 @@ These generated files are intentionally gitignored.
 
 ## VLESS cover domain rotation
 
-The rotation mechanism runs every 30 minutes via `vpn-reality-cover-rotate.timer`:
+The rotation mechanism runs every 120 minutes via `vpn-reality-cover-rotate.timer`:
 
 1. Loads `XRAY_COVER_DOMAINS` (comma-separated pool of 35 domains)
 2. Shuffles candidates with `sort -R`

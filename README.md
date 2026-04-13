@@ -19,7 +19,7 @@ A password-protected HTTPS credentials page shows QR codes, connection URIs, and
 - **IKEv2** ([hwdsl2/ipsec-vpn-server](https://github.com/hwdsl2/docker-ipsec-vpn-server)) runs in Docker with `VPN_IKEV2_ONLY=yes` — accepts EAP (username/password) auth, no client app required on iOS/macOS/Windows.
 - **WireGuard** ([linuxserver/wireguard](https://github.com/linuxserver/docker-wireguard)) runs in Docker on UDP 51820. Keys and a ready-to-use client `.conf` file are generated at setup time and shown on the credentials page as a scannable QR code and a downloadable file.
 - **nginx** (host) serves a password-protected HTTPS page at your domain with all connection details.
-- **systemd timers** rotate the VLESS+Reality cover domain and the MTProxy FakeTLS fingerprint every 30 minutes, TLS-check each new candidate against a pool of 35 domains (20 international + 15 Russian), and reload the respective service automatically. After each Xray rotation users should re-import the VLESS link.
+- **systemd timers** rotate the VLESS+Reality cover domain and the MTProxy FakeTLS fingerprint every 120 minutes, TLS-check each new candidate against a pool of 35 domains (20 international + 15 Russian), and reload the respective service automatically. After each Xray rotation users should re-import the VLESS link.
 
 ## Requirements
 
@@ -69,7 +69,7 @@ The page login credentials are printed at the end of this step.
 ssh user@yourserver "cd /opt/vpn && sudo ./setup-nginx.sh"
 ```
 
-This configures the nginx vhost (reading `CREDENTIALS_DOMAIN` from `.env`), obtains a Let's Encrypt certificate, opens all required UFW ports, renders the credentials page, installs the 2-hour rotation timer, and registers `hogen-vpn.service` to auto-start the Docker stack on every boot.
+This configures the nginx vhost (reading `CREDENTIALS_DOMAIN` from `.env`), obtains a Let's Encrypt certificate, opens all required UFW ports, renders the credentials page, installs the cover-rotation timers, and registers `hogen-vpn.service` to auto-start the Docker stack on every boot.
 
 ### 5. Start containers
 
@@ -112,7 +112,7 @@ ssh user@yourserver "cd /opt/vpn && ./render-xray-config.sh && docker compose re
 
 ## Cover domain rotation
 
-The VLESS+Reality `sni`/`dest` pair rotates every **30 minutes** via `vpn-reality-cover-rotate.timer`. The MTProxy FakeTLS fingerprint rotates independently every **30 minutes** via `vpn-mtg-rotate.timer`.
+The VLESS+Reality `sni`/`dest` pair rotates every **120 minutes** via `vpn-reality-cover-rotate.timer`. The MTProxy FakeTLS fingerprint rotates independently every **120 minutes** via `vpn-mtg-rotate.timer`.
 
 **Xray rotation** (`rotate-reality-cover.sh`):
 1. Shuffles the 35-domain pool (`XRAY_COVER_DOMAINS` in `.env`)
@@ -217,10 +217,10 @@ Generated files (gitignored): `.env`, `mtg/config.toml`, `xray/config.json`, `ip
 | `SERVER_IP` | VPS public IP |
 | `MTG_SECRET`, `MTG_PORT`, `MTG_LINK` | MTProxy credentials |
 | `MTG_COVER_DOMAINS` | Comma-separated MTProxy rotation pool |
-| `MTG_ROTATE_MINS` | MTProxy rotation interval in minutes (`0` = disabled, default `30`) |
+| `MTG_ROTATE_MINS` | MTProxy rotation interval in minutes (`0` = disabled, default `120`) |
 | `XRAY_UUID`, `XRAY_PRIVATE_KEY`, `XRAY_PUBLIC_KEY`, `XRAY_SHORT_ID`, `XRAY_SNI`, `XRAY_DEST` | VLESS+Reality parameters |
 | `XRAY_COVER_DOMAINS` | Comma-separated rotation pool (35 domains) |
-| `XRAY_ROTATE_MINS` | Rotation interval in minutes (`0` = disabled, default `30`) |
+| `XRAY_ROTATE_MINS` | Rotation interval in minutes (`0` = disabled, default `120`) |
 | `VLESS_URI` | Full VLESS connection URI |
 | `SS_METHOD`, `SS_PORT`, `SS_PASSWORD`, `SS_URI` | Shadowsocks 2022 credentials |
 | `IKE_PSK`, `IKE_USER`, `IKE_PASSWORD` | IKEv2 credentials |
