@@ -177,7 +177,7 @@ secure  = false
 tls     = true            # FakeTLS (ee) mode only
 
 [general.links]
-show = "*"                # print all user links on startup
+show = "none"             # retrieve links via management API (GET :9091/v1/users)
 
 [server]
 port = 443                # HTTPS port — collateral-damage protection on Russian mobile
@@ -185,7 +185,8 @@ port = 443                # HTTPS port — collateral-damage protection on Russi
 [server.api]
 enabled   = true
 listen    = "0.0.0.0:9091"
-whitelist = ["127.0.0.0/8"]
+# Docker NAT rewrites source to bridge gateway (~172.17.0.1); loopback-only blocks host.
+whitelist = ["127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
 
 [[server.listeners]]
 ip = "0.0.0.0"
@@ -209,7 +210,7 @@ tls_domains  = [                      # all 35 pool domains for simultaneous lin
 unknown_sni_action = "mask"  # forward unknown SNI probes to real mask host
 mask               = true
 tls_emulation      = true    # calibrate ServerHello noise to real cert chain size
-tls_front_dir      = "/etc/telemt/tlsfront"  # cache inside tmpfs
+tls_front_dir      = "/run/tlsfront"   # writable tmpfs (see docker-compose.yml: tmpfs /run)
 
 [access.users]
 default = "RAW_KEY_HERE"   # 32-hex chars extracted in Step 1
@@ -241,7 +242,8 @@ Replace the `mtg` service block with `telemt`:
     volumes:
       - ./telemt/config.toml:/etc/telemt/config.toml:ro
     tmpfs:
-      - /etc/telemt:rw,mode=1777,size=8m   # proxy-secret + tls_front_dir cache
+      - /run:rw,mode=0755,size=8m   # tls_front_dir cache (/run/tlsfront)
+      # Note: do NOT use /etc/telemt as tmpfs — it would shadow the config bind-mount above.
     environment:
       RUST_LOG: "info"
     cap_drop:

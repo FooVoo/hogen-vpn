@@ -144,7 +144,7 @@ secure  = false
 tls     = true            # FakeTLS (ee) mode only
 
 [general.links]
-show = "*"                # print all user links on startup
+show = "none"             # suppress links from logs; retrieve via management API instead
 
 [server]
 port = 443                # telemt always listens on 443 inside the container;
@@ -153,7 +153,9 @@ port = 443                # telemt always listens on 443 inside the container;
 [server.api]
 enabled   = true
 listen    = "0.0.0.0:9091"
-whitelist = ["127.0.0.0/8"]
+# Docker NAT rewrites the source to the bridge gateway (~172.17.0.1), not 127.0.0.1,
+# so loopback-only would block all host API calls.  RFC-1918 + loopback covers it.
+whitelist = ["127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
 
 [[server.listeners]]
 ip = "0.0.0.0"

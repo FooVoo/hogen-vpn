@@ -15,6 +15,15 @@ set -a; source "$ENV_FILE"; set +a
 
 [[ -n "${PAGE_TOKEN:-}" ]] || { log_error "PAGE_TOKEN is missing — re-run generate-secrets.sh"; exit 1; }
 
+# ── Profile helpers ───────────────────────────────────────────────────────────
+_profile_enabled() { [[ ",${COMPOSE_PROFILES:-}," == *",$1,"* ]]; }
+
+# ── Computed display variables ────────────────────────────────────────────────
+# IKEv2 server identity: use VPN_DNS_NAME if set (Apple clients prefer FQDN),
+# otherwise fall back to the raw IP.
+IKE_SERVER="${VPN_DNS_NAME:-${SERVER_IP}}"
+export IKE_SERVER
+
 if [[ "${XRAY_ROTATE_MINS:-0}" =~ ^[0-9]+$ ]] && (( ${XRAY_ROTATE_MINS:-0} > 0 )); then
   XRAY_ROTATION_MESSAGE="Cover-domain обновляется автоматически каждые ${XRAY_ROTATE_MINS:-0} мин. После следующей ротации старый профиль может перестать подключаться, поэтому заново открой эту страницу и импортируй свежую ссылку или QR-код."
 else
@@ -69,9 +78,33 @@ export CHECK_SS_TCP_HTML CHECK_XRAY_CTR_HTML CHECK_IPSEC_CTR_HTML CHECK_WG_CTR_H
 # Anyone with the link can access it; no browser auth dialog needed.
 TOKEN_DIR="${WEBROOT}/${PAGE_TOKEN}"
 mkdir -p "$TOKEN_DIR"
-envsubst '${SERVER_IP}${MTG_PORT}${MTG_SECRET}${MTG_LINK}${MTG_LAST_ROTATED}${XRAY_UUID}${XRAY_PUBLIC_KEY}${XRAY_SHORT_ID}${XRAY_SNI}${VLESS_URI}${XRAY_ROTATION_MESSAGE}${XRAY_LAST_ROTATED}${SS_URI}${SS_PORT}${SS_METHOD}${SS_PASSWORD}${IKE_PSK}${IKE_USER}${IKE_PASSWORD}${WG_PORT}${WG_SERVER_PUBLIC_KEY}${WG_CLIENT_PRIVATE_KEY}${WG_CLIENT_IP}${WG_PSK}${CHECK_OVERALL_CLASS}${CHECK_OVERALL_LABEL}${CHECK_TIMESTAMP}${CHECK_MTG_TCP_HTML}${CHECK_MTG_CTR_HTML}${CHECK_XRAY_TCP_HTML}${CHECK_SS_TCP_HTML}${CHECK_XRAY_CTR_HTML}${CHECK_IPSEC_CTR_HTML}${CHECK_WG_CTR_HTML}' \
+envsubst '${SERVER_IP}${MTG_PORT}${MTG_SECRET}${MTG_COVER_DOMAIN}${MTG_LINK}${MTG_LAST_ROTATED}${XRAY_UUID}${XRAY_PUBLIC_KEY}${XRAY_SHORT_ID}${XRAY_SNI}${VLESS_URI}${XRAY_ROTATION_MESSAGE}${XRAY_LAST_ROTATED}${SS_URI}${SS_PORT}${SS_METHOD}${SS_PASSWORD}${IKE_PSK}${IKE_USER}${IKE_PASSWORD}${IKE_SERVER}${WG_PORT}${WG_SERVER_PUBLIC_KEY}${WG_CLIENT_PRIVATE_KEY}${WG_CLIENT_IP}${WG_PSK}${CHECK_OVERALL_CLASS}${CHECK_OVERALL_LABEL}${CHECK_TIMESTAMP}${CHECK_MTG_TCP_HTML}${CHECK_MTG_CTR_HTML}${CHECK_XRAY_TCP_HTML}${CHECK_SS_TCP_HTML}${CHECK_XRAY_CTR_HTML}${CHECK_IPSEC_CTR_HTML}${CHECK_WG_CTR_HTML}' \
   < "${SCRIPT_DIR}/web/index.html.template" \
   > "${TOKEN_DIR}/index.html"
+
+# ── Strip cards for disabled services ────────────────────────────────────────
+_strip_section() {
+  local marker="$1" file="$2"
+  sed -i "/<!-- BEGIN_${marker} -->/,/<!-- END_${marker} -->/d" "$file"
+}
+
+if ! _profile_enabled mtproxy-mtg && ! _profile_enabled telemt; then
+  _strip_section "CARD:mtg"   "${TOKEN_DIR}/index.html"
+  _strip_section "STATUS:mtg" "${TOKEN_DIR}/index.html"
+fi
+if ! _profile_enabled xray; then
+  _strip_section "CARD:xray"   "${TOKEN_DIR}/index.html"
+  _strip_section "CARD:ss"     "${TOKEN_DIR}/index.html"
+  _strip_section "STATUS:xray" "${TOKEN_DIR}/index.html"
+fi
+if ! _profile_enabled ikev2; then
+  _strip_section "CARD:ikev2"   "${TOKEN_DIR}/index.html"
+  _strip_section "STATUS:ikev2" "${TOKEN_DIR}/index.html"
+fi
+if ! _profile_enabled wireguard; then
+  _strip_section "CARD:wireguard"   "${TOKEN_DIR}/index.html"
+  _strip_section "STATUS:wireguard" "${TOKEN_DIR}/index.html"
+fi
 cp "${SCRIPT_DIR}/web/credentials.js" "${TOKEN_DIR}/credentials.js"
 
 # Write downloadable WireGuard client config into the token directory.

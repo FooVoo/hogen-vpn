@@ -258,7 +258,7 @@
 
   <div class="cards">
 
-    <!-- MTProxy card -->
+    <!-- BEGIN_CARD:mtg -->
     <div class="card">
       <div class="card-header">
         <span class="card-title">Telegram MTProxy</span>
@@ -286,6 +286,11 @@
           <code>${MTG_SECRET}</code>
           <button class="copy-btn" data-copy="${MTG_SECRET}">Копировать</button>
         </div>
+        <div class="field">
+          <label>Cover domain</label>
+          <code>${MTG_COVER_DOMAIN}</code>
+          <button class="copy-btn" data-copy="${MTG_COVER_DOMAIN}">Копировать</button>
+        </div>
         <div class="field multiline">
           <label>Ссылка</label>
           <code id="mtg-link">${MTG_LINK}</code>
@@ -296,8 +301,9 @@
         <button class="rotate-now-btn" id="rn-mtg" data-rotate="mtg">↻ Обновить</button>
       </div>
     </div>
+    <!-- END_CARD:mtg -->
 
-    <!-- VLESS card -->
+    <!-- BEGIN_CARD:xray -->
     <div class="card">
       <div class="card-header">
         <span class="card-title">VLESS (VPN)</span>
@@ -401,8 +407,9 @@
         </div>
       </div>
     </div>
+    <!-- END_CARD:xray -->
 
-    <!-- Shadowsocks card -->
+    <!-- BEGIN_CARD:ss -->
     <div class="card">
       <div class="card-header">
         <span class="card-title">Shadowsocks</span>
@@ -469,8 +476,9 @@
         </div>
       </div>
     </div>
+    <!-- END_CARD:ss -->
 
-    <!-- IKEv2 card -->
+    <!-- BEGIN_CARD:ikev2 -->
     <div class="card">
       <div class="card-header">
         <span class="card-title">IKEv2 / IPSec</span>
@@ -497,8 +505,8 @@
       <div class="fields" style="margin-bottom:20px;">
         <div class="field">
           <label>Сервер</label>
-          <code>${SERVER_IP}</code>
-          <button class="copy-btn" data-copy="${SERVER_IP}">Копировать</button>
+          <code>${IKE_SERVER}</code>
+          <button class="copy-btn" data-copy="${IKE_SERVER}">Копировать</button>
         </div>
         <div class="field">
           <label>Тип</label>
@@ -537,8 +545,9 @@
         Файл появится в <code style="color:#a5f3fc;">./ipsec/data/</code> и включает CA-сертификат.
       </div>
     </div>
+    <!-- END_CARD:ikev2 -->
 
-    <!-- WireGuard card -->
+    <!-- BEGIN_CARD:wireguard -->
     <div class="card">
       <div class="card-header">
         <span class="card-title">WireGuard</span>
@@ -634,6 +643,7 @@ PersistentKeepalive = 25</code>
         </div>
       </div>
     </div>
+    <!-- END_CARD:wireguard -->
 
     <!-- Status card -->
     <div class="card">
@@ -643,13 +653,21 @@ PersistentKeepalive = 25</code>
       </div>
       <div class="status-badge ${CHECK_OVERALL_CLASS}">${CHECK_OVERALL_LABEL}</div>
       <div class="status-list">
-        <div class="status-row"><span>MTProxy  tcp:2083</span>${CHECK_MTG_TCP_HTML}</div>
+        <!-- BEGIN_STATUS:mtg -->
+        <div class="status-row"><span>MTProxy  tcp:${MTG_PORT}</span>${CHECK_MTG_TCP_HTML}</div>
         <div class="status-row"><span>MTProxy  container</span>${CHECK_MTG_CTR_HTML}</div>
+        <!-- END_STATUS:mtg -->
+        <!-- BEGIN_STATUS:xray -->
         <div class="status-row"><span>VLESS    tcp:8443</span>${CHECK_XRAY_TCP_HTML}</div>
         <div class="status-row"><span>Xray     container</span>${CHECK_XRAY_CTR_HTML}</div>
-        <div class="status-row"><span>Shadowsocks  tcp:8388</span>${CHECK_SS_TCP_HTML}</div>
+        <div class="status-row"><span>Shadowsocks  tcp:${SS_PORT}</span>${CHECK_SS_TCP_HTML}</div>
+        <!-- END_STATUS:xray -->
+        <!-- BEGIN_STATUS:ikev2 -->
         <div class="status-row"><span>IKEv2    container</span>${CHECK_IPSEC_CTR_HTML}</div>
+        <!-- END_STATUS:ikev2 -->
+        <!-- BEGIN_STATUS:wireguard -->
         <div class="status-row"><span>WireGuard  container</span>${CHECK_WG_CTR_HTML}</div>
+        <!-- END_STATUS:wireguard -->
       </div>
       <div class="rotation-meta">Проверено: <span>${CHECK_TIMESTAMP}</span></div>
     </div>
